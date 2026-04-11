@@ -9,6 +9,7 @@ import AdSpace from '../components/AdSpace';
 import { Helmet } from 'react-helmet-async';
 import NewsletterForm from '../components/NewsletterForm';
 import { Badge } from '@/components/ui/badge';
+import LazyImage from '../components/LazyImage';
 
 interface HomeProps {
   onNavigate: (page: string, slug?: string) => void;
@@ -85,14 +86,13 @@ export default function Home({ onNavigate }: HomeProps) {
               return (
                 <Card key={post.id} className="group overflow-hidden border-primary/20 bg-primary/5 hover:shadow-lg transition-shadow">
                   {post.featuredImage && (
-                    <div className="aspect-video overflow-hidden">
-                      <img 
-                        src={post.featuredImage} 
-                        alt={post.title}
-                        className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-300"
-                        referrerPolicy="no-referrer"
-                      />
-                    </div>
+                    <LazyImage 
+                      src={post.featuredImage} 
+                      alt={post.title}
+                      containerClassName="aspect-video"
+                      className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-300"
+                      referrerPolicy="no-referrer"
+                    />
                   )}
                   <CardHeader>
                     <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground mb-2">
@@ -157,14 +157,13 @@ export default function Home({ onNavigate }: HomeProps) {
                   return (
                     <Card key={post.id} className="group overflow-hidden hover:shadow-lg transition-shadow">
                       {post.featuredImage && (
-                        <div className="aspect-video overflow-hidden">
-                          <img 
-                            src={post.featuredImage} 
-                            alt={post.title}
-                            className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-300"
-                            referrerPolicy="no-referrer"
-                          />
-                        </div>
+                        <LazyImage 
+                          src={post.featuredImage} 
+                          alt={post.title}
+                          containerClassName="aspect-video"
+                          className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-300"
+                          referrerPolicy="no-referrer"
+                        />
                       )}
                       <CardHeader>
                         <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground mb-2">

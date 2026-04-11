@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Helmet } from 'react-helmet-async';
+import LazyImage from '../components/LazyImage';
 
 interface BlogProps {
   onNavigate: (page: string, slug?: string) => void;
@@ -110,14 +111,13 @@ export default function Blog({ onNavigate }: BlogProps) {
             return (
               <Card key={post.id} className="group overflow-hidden hover:shadow-lg transition-shadow flex flex-col">
                 {post.featuredImage && (
-                  <div className="aspect-video overflow-hidden">
-                    <img 
-                      src={post.featuredImage} 
-                      alt={post.title}
-                      className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-300"
-                      referrerPolicy="no-referrer"
-                    />
-                  </div>
+                  <LazyImage 
+                    src={post.featuredImage} 
+                    alt={post.title}
+                    containerClassName="aspect-video"
+                    className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-300"
+                    referrerPolicy="no-referrer"
+                  />
                 )}
                 <CardHeader className="flex-1">
                   <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground mb-2">
