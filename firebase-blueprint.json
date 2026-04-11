@@ -1,0 +1,256 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "A user of the blog platform",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Firebase Auth UID" },
+        "email": { "type": "string", "format": "email" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string", "format": "uri" },
+        "role": { "type": "string", "enum": ["admin", "author", "reader"] },
+        "bio": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "role"]
+    },
+    "Post": {
+      "title": "Post",
+      "description": "A blog post",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "slug": { "type": "string" },
+        "content": { "type": "string" },
+        "excerpt": { "type": "string" },
+        "authorId": { "type": "string" },
+        "authorName": { "type": "string" },
+        "featuredImage": { "type": "string", "format": "uri" },
+        "categoryId": { "type": "string" },
+        "tags": { "type": "array", "items": { "type": "string" } },
+        "status": { "type": "string", "enum": ["draft", "published"] },
+        "publishedAt": { "type": "string", "format": "date-time" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "viewCount": { "type": "number" },
+        "likeCount": { "type": "number" }
+      },
+      "required": ["title", "slug", "content", "authorId", "status"]
+    },
+    "Reaction": {
+      "title": "Reaction",
+      "description": "A user reaction (like) to a post",
+      "type": "object",
+      "properties": {
+        "postId": { "type": "string" },
+        "userId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["postId", "userId"]
+    },
+    "Category": {
+      "title": "Category",
+      "description": "A category for posts",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "slug": { "type": "string" },
+        "description": { "type": "string" }
+      },
+      "required": ["name", "slug"]
+    },
+    "Tag": {
+      "title": "Tag",
+      "description": "A tag for posts",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "slug": { "type": "string" }
+      },
+      "required": ["name", "slug"]
+    },
+    "Comment": {
+      "title": "Comment",
+      "description": "A comment on a post",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "postId": { "type": "string" },
+        "authorId": { "type": "string" },
+        "authorName": { "type": "string" },
+        "authorPhoto": { "type": "string" },
+        "content": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "status": { "type": "string", "enum": ["pending", "approved", "spam"] },
+        "parentId": { "type": "string", "description": "ID of the parent comment if this is a reply" },
+        "likeCount": { "type": "number" },
+        "likedBy": { "type": "array", "items": { "type": "string" } }
+      },
+      "required": ["postId", "content", "authorName", "status"]
+    },
+    "Setting": {
+      "title": "Setting",
+      "description": "Site-wide settings",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "siteName": { "type": "string" },
+        "siteDescription": { "type": "string" },
+        "adHeader": { "type": "string", "description": "HTML/Script for header ad" },
+        "adSidebar": { "type": "string", "description": "HTML/Script for sidebar ad" },
+        "adFooter": { "type": "string", "description": "HTML/Script for footer ad" },
+        "adInPost": { "type": "string", "description": "HTML/Script for ad inside post" },
+        "primaryColor": { "type": "string", "description": "Primary theme color (hex)" },
+        "fontFamily": { "type": "string", "description": "Main font family" },
+        "logoUrl": { "type": "string", "description": "URL for site logo" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "Page": {
+      "title": "Page",
+      "description": "Static page content",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "slug": { "type": "string" },
+        "content": { "type": "string" },
+        "status": { "type": "string", "enum": ["draft", "published"] },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "slug", "content"]
+    },
+    "Newsletter": {
+      "title": "Newsletter",
+      "description": "Email subscriptions",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string", "format": "email" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["email"]
+    },
+    "Message": {
+      "title": "Message",
+      "description": "Contact form messages",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "subject": { "type": "string" },
+        "message": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "status": { "type": "string", "enum": ["unread", "read", "replied"] }
+      },
+      "required": ["name", "email", "message"]
+    },
+    "Bookmark": {
+      "title": "Bookmark",
+      "description": "Saved posts by users",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "postId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "postId"]
+    },
+    "PublicProfile": {
+      "title": "Public Profile",
+      "description": "Publicly readable user information",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "role": { "type": "string" },
+        "bio": { "type": "string" },
+        "donationLink": { "type": "string" }
+      },
+      "required": ["uid"]
+    },
+    "NewsletterTemplate": {
+      "title": "Newsletter Template",
+      "description": "Email template for newsletters.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "subject": { "type": "string" },
+        "content": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "subject", "content"]
+    },
+    "PushSubscription": {
+      "title": "Push Subscription",
+      "description": "FCM/Push token for a user or guest.",
+      "type": "object",
+      "properties": {
+        "token": { "type": "string" },
+        "userId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["token"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profiles"
+    },
+    "/posts/{postId}": {
+      "schema": "Post",
+      "description": "Blog posts"
+    },
+    "/categories/{categoryId}": {
+      "schema": "Category",
+      "description": "Post categories"
+    },
+    "/tags/{tagId}": {
+      "schema": "Tag",
+      "description": "Post tags"
+    },
+    "/comments/{commentId}": {
+      "schema": "Comment",
+      "description": "Post comments"
+    },
+    "/reactions/{reactionId}": {
+      "schema": "Reaction",
+      "description": "Post reactions"
+    },
+    "/settings/{settingId}": {
+      "schema": "Setting",
+      "description": "Site settings and ad control"
+    },
+    "/pages/{pageId}": {
+      "schema": "Page",
+      "description": "Static pages like About, Contact"
+    },
+    "/newsletter/{subscriberId}": {
+      "schema": "Newsletter",
+      "description": "Newsletter subscribers"
+    },
+    "/messages/{messageId}": {
+      "schema": "Message",
+      "description": "Contact form messages"
+    },
+    "/public_profiles/{userId}": {
+      "schema": "PublicProfile",
+      "description": "Public user profiles"
+    },
+    "/newsletter_templates/{templateId}": {
+      "schema": "NewsletterTemplate",
+      "description": "Templates for sending newsletters to subscribers."
+    },
+    "/push_subscriptions/{subscriptionId}": {
+      "schema": "PushSubscription",
+      "description": "Browser push notification subscription tokens."
+    }
+  }
+}

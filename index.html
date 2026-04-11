@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="monetag" content="fbe3d2fab4b5dbdde3c5fe058aff52ee">
+    <meta name="description" content="QalbeTalks Blog - Insights for the Modern Mind. Explore the latest in technology, design, and culture." />
+    
+    <script>
+      // Fix for "Uncaught TypeError: Cannot set property fetch of #<Window> which has only a getter"
+      // This occurs when third-party scripts (like Monetag/PropellerAds) try to wrap window.fetch
+      (function() {
+        try {
+          var originalFetch = window.fetch;
+          Object.defineProperty(window, 'fetch', {
+            get: function() { return originalFetch; },
+            set: function() { console.warn('Blocked attempt to overwrite window.fetch'); },
+            configurable: true
+          });
+        } catch (e) {
+          // If already locked, we can't do much here, but this script runs early.
+        }
+      })();
+    </script>
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://qalbetalks.web.app/" />
+    <meta property="og:title" content="QalbeTalks Blog" />
+    <meta property="og:description" content="Insights for the Modern Mind. Explore the latest in technology, design, and culture." />
+    <meta property="og:image" content="https://picsum.photos/seed/blog/1200/630" />
+
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image" />
+    <meta property="twitter:url" content="https://qalbetalks.web.app/" />
+    <meta property="twitter:title" content="QalbeTalks Blog" />
+    <meta property="twitter:description" content="Insights for the Modern Mind. Explore the latest in technology, design, and culture." />
+    <meta property="twitter:image" content="https://picsum.photos/seed/blog/1200/630" />
+
+    <title>QalbeTalks Blog</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+

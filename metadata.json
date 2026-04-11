@@ -1,0 +1,5 @@
+{
+  "name": "QalbeTalks Blog",
+  "description": "A modern, full-stack blog platform built with React, Tailwind CSS, and Firebase. Features include admin dashboard, markdown support, and real-time updates.",
+  "requestFramePermissions": []
+}
