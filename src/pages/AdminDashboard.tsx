@@ -92,6 +92,60 @@ function AdminDashboardContent({ onNavigate }: AdminDashboardProps) {
   const [status, setStatus] = useState<'draft' | 'published' | 'pending'>('draft');
   const [categoryId, setCategoryId] = useState('');
   const [postTags, setPostTags] = useState<string[]>([]);
+  const [scheduledAt, setScheduledAt] = useState<string>('');
+  const [hasDraft, setHasDraft] = useState(false);
+
+  // Auto-save draft logic
+  useEffect(() => {
+    if (!isDialogOpen || editingPost) return;
+
+    const draftData = {
+      title,
+      content,
+      excerpt,
+      slug,
+      featuredImage,
+      categoryId,
+      postTags,
+      updatedAt: Date.now()
+    };
+
+    const timeoutId = setTimeout(() => {
+      if (title || content || excerpt) {
+        localStorage.setItem('post_draft', JSON.stringify(draftData));
+        setHasDraft(true);
+      }
+    }, 1000);
+
+    return () => clearTimeout(timeoutId);
+  }, [title, content, excerpt, slug, featuredImage, categoryId, postTags, isDialogOpen, editingPost]);
+
+  useEffect(() => {
+    const savedDraft = localStorage.getItem('post_draft');
+    if (savedDraft) {
+      setHasDraft(true);
+    }
+  }, []);
+
+  const restoreDraft = () => {
+    const savedDraft = localStorage.getItem('post_draft');
+    if (savedDraft) {
+      const draft = JSON.parse(savedDraft);
+      setTitle(draft.title || '');
+      setContent(draft.content || '');
+      setExcerpt(draft.excerpt || '');
+      setSlug(draft.slug || '');
+      setFeaturedImage(draft.featuredImage || '');
+      setCategoryId(draft.categoryId || '');
+      setPostTags(draft.postTags || []);
+      toast.success("Draft restored!");
+    }
+  };
+
+  const clearDraft = () => {
+    localStorage.removeItem('post_draft');
+    setHasDraft(false);
+  };
 
   // Page Form state
   const [isPageDialogOpen, setIsPageDialogOpen] = useState(false);
@@ -242,7 +296,7 @@ function AdminDashboardContent({ onNavigate }: AdminDashboardProps) {
     e.preventDefault();
     if (!user) return;
 
-    const postData = {
+    const postData: any = {
       title,
       slug: slug || slugify(title),
       content,
@@ -256,6 +310,15 @@ function AdminDashboardContent({ onNavigate }: AdminDashboardProps) {
       updatedAt: serverTimestamp(),
     };
 
+    if (scheduledAt) {
+      postData.scheduledAt = new Date(scheduledAt);
+      // If scheduled, status should be 'pending' or a new 'scheduled' status
+      // For now we'll use 'pending' and let a future process publish it
+      if (status === 'published') {
+        postData.status = 'pending';
+      }
+    }
+
     try {
       if (editingPost) {
         await updateDoc(doc(db, 'posts', editingPost.id), postData);
@@ -268,6 +331,7 @@ function AdminDashboardContent({ onNavigate }: AdminDashboardProps) {
           likeCount: 0,
         });
         toast.success("Post created successfully!");
+        clearDraft();
       }
       setIsDialogOpen(false);
     } catch (error) {
@@ -1437,10 +1501,19 @@ function AdminDashboardContent({ onNavigate }: AdminDashboardProps) {
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{editingPost ? 'Edit Post' : 'Create New Post'}</DialogTitle>
-            <DialogDescription>
-              Fill in the details below to {editingPost ? 'update' : 'create'} your blog post.
-            </DialogDescription>
+            <div className="flex items-center justify-between pr-8">
+              <div>
+                <DialogTitle>{editingPost ? 'Edit Post' : 'Create New Post'}</DialogTitle>
+                <DialogDescription>
+                  Fill in the details below to {editingPost ? 'update' : 'create'} your blog post.
+                </DialogDescription>
+              </div>
+              {!editingPost && hasDraft && (
+                <Button variant="outline" size="sm" onClick={restoreDraft} className="gap-2">
+                  <Activity className="h-4 w-4" /> Restore Draft
+                </Button>
+              )}
+            </div>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-6 py-4">
             <div className="space-y-2">
@@ -1494,26 +1567,29 @@ function AdminDashboardContent({ onNavigate }: AdminDashboardProps) {
                 onBlur={newContent => setContent(newContent)}
               />
             </div>
-            <div className="flex items-center gap-4">
-              <div className="flex items-center space-x-2">
-                <input 
-                  type="radio" 
-                  id="draft" 
-                  name="status" 
-                  checked={status === 'draft'} 
-                  onChange={() => setStatus('draft')} 
-                />
-                <Label htmlFor="draft">Draft</Label>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="status">Status</Label>
+                <select 
+                  id="status" 
+                  value={status} 
+                  onChange={(e) => setStatus(e.target.value as any)}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                >
+                  <option value="draft">Draft</option>
+                  <option value="published">Published</option>
+                  <option value="pending">Pending Review</option>
+                </select>
               </div>
-              <div className="flex items-center space-x-2">
-                <input 
-                  type="radio" 
-                  id="published" 
-                  name="status" 
-                  checked={status === 'published'} 
-                  onChange={() => setStatus('published')} 
+              <div className="space-y-2">
+                <Label htmlFor="scheduledAt">Schedule Publication (Optional)</Label>
+                <Input 
+                  id="scheduledAt" 
+                  type="datetime-local" 
+                  value={scheduledAt} 
+                  onChange={(e) => setScheduledAt(e.target.value)} 
                 />
-                <Label htmlFor="published">Published</Label>
+                <p className="text-[10px] text-muted-foreground">If set, the post will be marked as pending until the scheduled time.</p>
               </div>
             </div>
             <div className="grid gap-4 md:grid-cols-2">

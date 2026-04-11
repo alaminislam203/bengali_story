@@ -3,6 +3,8 @@ import {
   onAuthStateChanged, 
   signInWithPopup, 
   GoogleAuthProvider, 
+  FacebookAuthProvider,
+  GithubAuthProvider,
   signOut,
   User as FirebaseUser
 } from 'firebase/auth';
@@ -14,7 +16,7 @@ interface AuthContextType {
   profile: any | null;
   loading: boolean;
   isAdmin: boolean;
-  login: () => Promise<void>;
+  login: (providerName?: 'google' | 'facebook' | 'github') => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -68,8 +70,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => unsubscribe();
   }, []);
 
-  const login = async () => {
-    const provider = new GoogleAuthProvider();
+  const login = async (providerName: 'google' | 'facebook' | 'github' = 'google') => {
+    let provider;
+    switch (providerName) {
+      case 'facebook':
+        provider = new FacebookAuthProvider();
+        break;
+      case 'github':
+        provider = new GithubAuthProvider();
+        break;
+      case 'google':
+      default:
+        provider = new GoogleAuthProvider();
+    }
     await signInWithPopup(auth, provider);
   };
 

@@ -162,7 +162,7 @@ export default function Profile({ onNavigate }: { onNavigate?: (page: string, sl
             <User className="h-4 w-4" /> Profile
           </TabsTrigger>
           <TabsTrigger value="bookmarks" className="flex items-center gap-2">
-            <Bookmark className="h-4 w-4" /> Saved Posts
+            <Bookmark className="h-4 w-4" /> Reading List
           </TabsTrigger>
           <TabsTrigger value="write" className="flex items-center gap-2">
             <PenTool className="h-4 w-4" /> Write Post
@@ -257,8 +257,8 @@ export default function Profile({ onNavigate }: { onNavigate?: (page: string, sl
         <TabsContent value="bookmarks">
           <Card>
             <CardHeader>
-              <CardTitle className="text-2xl">Saved Posts</CardTitle>
-              <CardDescription>Posts you have bookmarked for later reading.</CardDescription>
+              <CardTitle className="text-2xl">Reading List</CardTitle>
+              <CardDescription>Posts you have saved for later reading.</CardDescription>
             </CardHeader>
             <CardContent>
               {bookmarksLoading ? (
