@@ -17,6 +17,7 @@ import { Button } from '@/components/ui/button';
 import { Activity } from 'lucide-react';
 import './lib/i18n';
 import { requestNotificationPermission, onMessageListener } from './lib/notifications';
+import AISecurityGuard from './components/AISecurityGuard';
 
 import { toast } from 'sonner';
 
@@ -121,6 +122,7 @@ function AppContent() {
       </main>
       <ScrollToTop />
       <AntiAdBlock />
+      <AISecurityGuard />
       <footer className="border-t py-12 mt-12 bg-muted/30">
         <div className="container mx-auto px-4">
           <div className="flex flex-col md:flex-row justify-between items-center gap-6">

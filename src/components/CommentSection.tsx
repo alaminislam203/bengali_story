@@ -8,7 +8,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { formatDate } from '../lib/utils';
 import { toast } from 'sonner';
-import { Heart, MessageCircle, CornerDownRight } from 'lucide-react';
+import { Heart, MessageCircle, ShieldCheck, ShieldAlert, Loader2 } from 'lucide-react';
+import { moderateContent } from '../lib/gemini';
 
 interface CommentSectionProps {
   postId: string;
@@ -21,6 +22,7 @@ export default function CommentSection({ postId }: CommentSectionProps) {
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
   const [replyContent, setReplyContent] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [isGuarding, setIsGuarding] = useState(false);
   const [guestId, setGuestId] = useState<string>('');
 
   useEffect(() => {
@@ -42,7 +44,22 @@ export default function CommentSection({ postId }: CommentSectionProps) {
     const authorPhoto = user ? (user.photoURL || '') : '';
 
     setSubmitting(true);
+    setIsGuarding(true);
+    
     try {
+      // AI Security Guard Scan
+      const moderation = await moderateContent(content);
+      
+      if (!moderation.safe) {
+        toast.error(`AI Guard: ${moderation.reason || 'Content flagged as unsafe.'}`, {
+          icon: <ShieldAlert className="h-4 w-4 text-destructive" />,
+          duration: 5000
+        });
+        setIsGuarding(false);
+        setSubmitting(false);
+        return;
+      }
+
       await addDoc(collection(db, 'comments'), {
         postId,
         authorId,
@@ -50,10 +67,12 @@ export default function CommentSection({ postId }: CommentSectionProps) {
         authorPhoto,
         content: content.trim(),
         createdAt: serverTimestamp(),
-        status: 'approved', // Auto-approve for now
+        status: 'approved',
         parentId: parentId || null,
         likeCount: 0,
         likedBy: [],
+        aiVerified: true,
+        aiConfidence: moderation.confidence
       });
       
       if (parentId) {
@@ -62,12 +81,15 @@ export default function CommentSection({ postId }: CommentSectionProps) {
       } else {
         setNewComment('');
       }
-      toast.success("Comment posted!");
+      toast.success("AI Guard verified: Comment posted!", {
+        icon: <ShieldCheck className="h-4 w-4 text-green-500" />
+      });
     } catch (error) {
       console.error("Error posting comment:", error);
       toast.error("Failed to post comment.");
     } finally {
       setSubmitting(false);
+      setIsGuarding(false);
     }
   };
 
@@ -180,8 +202,20 @@ export default function CommentSection({ postId }: CommentSectionProps) {
           onChange={(e) => setNewComment(e.target.value)}
           className="min-h-[100px]"
         />
-        <Button type="submit" disabled={submitting || !newComment.trim()}>
-          {submitting ? 'Posting...' : 'Post Comment'}
+        <Button type="submit" disabled={submitting || !newComment.trim()} className="gap-2">
+          {isGuarding ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              AI Guard Scanning...
+            </>
+          ) : submitting ? (
+            'Posting...'
+          ) : (
+            <>
+              <ShieldCheck className="h-4 w-4" />
+              Post Comment
+            </>
+          )}
         </Button>
       </form>
 

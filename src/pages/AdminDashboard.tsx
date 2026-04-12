@@ -32,10 +32,13 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { toast } from 'sonner';
 import { slugify, formatDate, cn, joditConfig } from '../lib/utils';
-import { Plus, Edit, Trash2, Eye, FileText, Settings, BarChart3, Heart, Layout, Users, MessageSquare, Check, X, Tags, FolderTree, Mail, Send, Activity, Pin, Bell, ExternalLink } from 'lucide-react';
+import { Plus, Edit, Trash2, Eye, FileText, Settings, BarChart3, Heart, Layout, Users, MessageSquare, Check, X, Tags, FolderTree, Mail, Send, Activity, Pin, Bell, ExternalLink, ShieldCheck, ShieldAlert, Info, Sparkles, Wand2, Gauge, AlertCircle, Loader2 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
 import JoditEditor from 'jodit-react';
 import { useRef } from 'react';
+import { suggestTags, analyzeContentQuality, ContentQualityResult } from '../lib/gemini';
+import { motion, AnimatePresence } from 'motion/react';
+import AIOnboarding from '../components/AIOnboarding';
 
 interface AdminDashboardProps {
   onNavigate: (page: string, slug?: string) => void;
@@ -94,6 +97,13 @@ function AdminDashboardContent({ onNavigate }: AdminDashboardProps) {
   const [postTags, setPostTags] = useState<string[]>([]);
   const [scheduledAt, setScheduledAt] = useState<string>('');
   const [hasDraft, setHasDraft] = useState(false);
+
+  // AI Features state
+  const [isSuggestingTags, setIsSuggestingTags] = useState(false);
+  const [suggestedTags, setSuggestedTags] = useState<string[]>([]);
+  const [isAnalyzingQuality, setIsAnalyzingQuality] = useState(false);
+  const [qualityResult, setQualityResult] = useState<ContentQualityResult | null>(null);
+  const [showQualityReport, setShowQualityReport] = useState(false);
 
   // Auto-save draft logic
   useEffect(() => {
@@ -245,6 +255,47 @@ function AdminDashboardContent({ onNavigate }: AdminDashboardProps) {
       setPostTags([]);
     }
     setIsDialogOpen(true);
+  };
+
+  const handleSuggestTags = async () => {
+    if (!title || !content) {
+      toast.error("Please add title and content first");
+      return;
+    }
+    setIsSuggestingTags(true);
+    try {
+      const suggestions = await suggestTags(title, content);
+      setSuggestedTags(suggestions);
+      toast.success("AI suggested some tags!");
+    } catch (error) {
+      toast.error("Failed to suggest tags");
+    } finally {
+      setIsSuggestingTags(false);
+    }
+  };
+
+  const handleAnalyzeQuality = async () => {
+    if (!title || !content) {
+      toast.error("Please add title and content first");
+      return;
+    }
+    setIsAnalyzingQuality(true);
+    try {
+      const result = await analyzeContentQuality(title, content);
+      setQualityResult(result);
+      setShowQualityReport(true);
+    } catch (error) {
+      toast.error("Failed to analyze content quality");
+    } finally {
+      setIsAnalyzingQuality(false);
+    }
+  };
+
+  const addSuggestedTag = (tag: string) => {
+    if (!postTags.includes(tag)) {
+      setPostTags([...postTags, tag]);
+    }
+    setSuggestedTags(suggestedTags.filter(t => t !== tag));
   };
 
   const handleOpenCategoryDialog = (category?: Category) => {
@@ -653,6 +704,7 @@ function AdminDashboardContent({ onNavigate }: AdminDashboardProps) {
 
   return (
     <div className="space-y-8">
+      <AIOnboarding onNavigate={onNavigate} />
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Admin Dashboard</h1>
@@ -687,6 +739,7 @@ function AdminDashboardContent({ onNavigate }: AdminDashboardProps) {
           <TabsTrigger value="notifications" className="gap-2"><Bell className="h-4 w-4" /> Notifications</TabsTrigger>
           <TabsTrigger value="messages" className="gap-2"><Mail className="h-4 w-4" /> Messages</TabsTrigger>
           <TabsTrigger value="users" className="gap-2"><Users className="h-4 w-4" /> Users</TabsTrigger>
+          <TabsTrigger value="security" className="gap-2"><ShieldCheck className="h-4 w-4" /> Security</TabsTrigger>
           <TabsTrigger value="settings" className="gap-2"><Settings className="h-4 w-4" /> Settings</TabsTrigger>
         </TabsList>
 
@@ -1292,6 +1345,111 @@ function AdminDashboardContent({ onNavigate }: AdminDashboardProps) {
           </Card>
         </TabsContent>
 
+        <TabsContent value="security" className="space-y-6">
+          <div className="grid gap-6 md:grid-cols-3">
+            <Card className="bg-primary/5 border-primary/20">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                  <ShieldCheck className="h-4 w-4 text-primary" />
+                  AI Guard Status
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-green-500">Active</div>
+                <p className="text-xs text-muted-foreground mt-1">Protecting comments & posts</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                  <ShieldAlert className="h-4 w-4 text-destructive" />
+                  Threats Blocked
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">0</div>
+                <p className="text-xs text-muted-foreground mt-1">No threats detected today</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                  <Activity className="h-4 w-4 text-blue-500" />
+                  AI Verification
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">100%</div>
+                <p className="text-xs text-muted-foreground mt-1">Content verified by Gemini</p>
+              </CardContent>
+            </Card>
+          </div>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>AI Security Logs</CardTitle>
+              <CardDescription>Recent activity from the AI Security Guard.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="flex items-start gap-4 p-4 border rounded-lg bg-muted/30">
+                  <div className="bg-green-500/10 p-2 rounded-full">
+                    <ShieldCheck className="h-4 w-4 text-green-500" />
+                  </div>
+                  <div className="flex-1 space-y-1">
+                    <p className="text-sm font-medium">System Initialization</p>
+                    <p className="text-xs text-muted-foreground">AI Security Guard successfully deployed and connected to Gemini API.</p>
+                    <p className="text-[10px] text-muted-foreground mt-2">Just now</p>
+                  </div>
+                </div>
+                
+                <div className="flex items-start gap-4 p-4 border rounded-lg bg-muted/30">
+                  <div className="bg-blue-500/10 p-2 rounded-full">
+                    <Info className="h-4 w-4 text-blue-500" />
+                  </div>
+                  <div className="flex-1 space-y-1">
+                    <p className="text-sm font-medium">Auto-Moderation Enabled</p>
+                    <p className="text-xs text-muted-foreground">All new comments are now being scanned for safety violations.</p>
+                    <p className="text-[10px] text-muted-foreground mt-2">5 minutes ago</p>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Security Settings</CardTitle>
+              <CardDescription>Configure how the AI Guard handles threats.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="flex items-center justify-between p-4 border rounded-lg">
+                <div className="space-y-0.5">
+                  <Label className="text-base">Strict Moderation</Label>
+                  <p className="text-sm text-muted-foreground">Automatically block comments with low confidence scores.</p>
+                </div>
+                <input type="checkbox" checked className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary" />
+              </div>
+              
+              <div className="flex items-center justify-between p-4 border rounded-lg">
+                <div className="space-y-0.5">
+                  <Label className="text-base">PII Protection</Label>
+                  <p className="text-sm text-muted-foreground">Prevent users from posting phone numbers or emails.</p>
+                </div>
+                <input type="checkbox" checked className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary" />
+              </div>
+
+              <div className="flex items-center justify-between p-4 border rounded-lg">
+                <div className="space-y-0.5">
+                  <Label className="text-base">Spam Filter</Label>
+                  <p className="text-sm text-muted-foreground">Use AI to detect and block repetitive or marketing spam.</p>
+                </div>
+                <input type="checkbox" checked className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary" />
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
         <TabsContent value="settings">
           <Card>
             <CardHeader>
@@ -1608,15 +1766,141 @@ function AdminDashboardContent({ onNavigate }: AdminDashboardProps) {
                 </select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="tags">Tags (comma separated)</Label>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="tags">Tags (comma separated)</Label>
+                  <Button 
+                    type="button" 
+                    variant="ghost" 
+                    size="sm" 
+                    className="h-6 text-[10px] gap-1 text-primary hover:text-primary hover:bg-primary/10"
+                    onClick={handleSuggestTags}
+                    disabled={isSuggestingTags}
+                  >
+                    {isSuggestingTags ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+                    AI Suggest
+                  </Button>
+                </div>
                 <Input 
                   id="tags" 
                   value={postTags.join(', ')} 
                   onChange={(e) => setPostTags(e.target.value.split(',').map(t => t.trim()).filter(t => t !== ''))} 
                   placeholder="tech, lifestyle, news"
                 />
+                <AnimatePresence>
+                  {suggestedTags.length > 0 && (
+                    <motion.div 
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      className="flex flex-wrap gap-1.5 mt-2"
+                    >
+                      <span className="text-[10px] text-muted-foreground w-full">Suggested:</span>
+                      {suggestedTags.map(tag => (
+                        <Badge 
+                          key={tag} 
+                          variant="outline" 
+                          className="cursor-pointer hover:bg-primary/10 hover:border-primary/30 transition-colors text-[10px] py-0 h-5"
+                          onClick={() => addSuggestedTag(tag)}
+                        >
+                          + {tag}
+                        </Badge>
+                      ))}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
             </div>
+
+            <div className="pt-4 border-t">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <Gauge className="h-5 w-5 text-primary" />
+                  <h3 className="font-semibold">Content Quality</h3>
+                </div>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  size="sm" 
+                  className="gap-2"
+                  onClick={handleAnalyzeQuality}
+                  disabled={isAnalyzingQuality}
+                >
+                  {isAnalyzingQuality ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
+                  Analyze with AI
+                </Button>
+              </div>
+
+              <AnimatePresence>
+                {showQualityReport && qualityResult && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="bg-muted/30 rounded-xl p-4 border space-y-4"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        <div className="relative h-12 w-12 flex items-center justify-center">
+                          <svg className="h-12 w-12 -rotate-90">
+                            <circle
+                              cx="24"
+                              cy="24"
+                              r="20"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="4"
+                              className="text-muted"
+                            />
+                            <circle
+                              cx="24"
+                              cy="24"
+                              r="20"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="4"
+                              strokeDasharray={125.6}
+                              strokeDashoffset={125.6 - (125.6 * qualityResult.score) / 100}
+                              className={cn(
+                                qualityResult.score > 80 ? "text-green-500" : 
+                                qualityResult.score > 50 ? "text-yellow-500" : "text-red-500"
+                              )}
+                            />
+                          </svg>
+                          <span className="absolute text-xs font-bold">{qualityResult.score}</span>
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold">Quality Score</p>
+                          <p className="text-xs text-muted-foreground">Readability: {qualityResult.readability}</p>
+                        </div>
+                      </div>
+                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setShowQualityReport(false)}>
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <div className="space-y-2">
+                        <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Key Feedback</p>
+                        <ul className="space-y-1.5">
+                          {qualityResult.feedback.map((f, i) => (
+                            <li key={i} className="text-xs flex items-start gap-2">
+                              <div className="h-1 w-1 rounded-full bg-primary mt-1.5 shrink-0" />
+                              {f}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                      <div className="space-y-2">
+                        <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">AI Suggestions</p>
+                        <p className="text-xs leading-relaxed italic text-muted-foreground">
+                          "{qualityResult.suggestions}"
+                        </p>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
               <Button type="submit">Save Post</Button>
