@@ -42,6 +42,7 @@ export interface PublicProfile {
   role: string;
   badges?: string[];
   points?: number;
+  isVerified?: boolean;
   donationLink?: string;
 }
 
@@ -172,6 +173,8 @@ export interface Setting {
   adSidebar?: string;
   adFooter?: string;
   adInPost?: string;
+  adParagraphInterval?: number;
+  adMaxCount?: number;
   antiAdBlockEnabled?: boolean;
   antiAdBlockMessage?: string;
   primaryColor?: string;

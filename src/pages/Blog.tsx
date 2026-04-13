@@ -7,6 +7,7 @@ import { ArrowRight, Search, Clock, Filter } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Helmet } from 'react-helmet-async';
 import LazyImage from '../components/LazyImage';
 import { motion } from 'motion/react';
@@ -52,162 +53,191 @@ export default function Blog({ onNavigate }: BlogProps) {
     post.excerpt.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  const featuredPost = filteredPosts.length > 0 ? filteredPosts[0] : null;
+  const regularPosts = filteredPosts.slice(1);
+
   return (
-    <div className="space-y-12">
+    <div className="space-y-16 pb-20">
       <Helmet>
         <title>Blog | {settings?.siteName || 'গল্পগ্রাম'}</title>
         <meta name="description" content={settings?.siteDescription || 'গল্পগ্রাম - আপনার প্রিয় গল্পের ঠিকানা। একটি আধুনিক বাংলা ব্লগ প্ল্যাটফর্ম।'} />
-        
-        {/* Open Graph / Facebook */}
-        <meta property="og:type" content="website" />
-        <meta property="og:url" content={window.location.href} />
-        <meta property="og:title" content={`Blog | ${settings?.siteName || 'গল্পগ্রাম'}`} />
-        <meta property="og:description" content={settings?.siteDescription || 'গল্পগ্রাম - আপনার প্রিয় গল্পের ঠিকানা। একটি আধুনিক বাংলা ব্লগ প্ল্যাটফর্ম।'} />
-
-        {/* Twitter */}
-        <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:url" content={window.location.href} />
-        <meta name="twitter:title" content={`Blog | ${settings?.siteName || 'গল্পগ্রাম'}`} />
-        <meta name="twitter:description" content={settings?.siteDescription || 'গল্পগ্রাম - আপনার প্রিয় গল্পের ঠিকানা। একটি আধুনিক বাংলা ব্লগ প্ল্যাটফর্ম।'} />
       </Helmet>
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-4xl font-bold tracking-tight">{settings?.siteName || 'The Blog'}</h1>
-          <p className="text-muted-foreground mt-2">{settings?.siteDescription || 'Discover stories, thinking, and expertise.'}</p>
-        </div>
-        <div className="relative w-full md:w-72">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input 
-            className="pl-10" 
-            placeholder="Search posts..." 
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-        </div>
-      </div>
 
-      {/* Categories Filter */}
-      <div className="flex flex-wrap gap-2 items-center">
-        <div className="flex items-center gap-2 mr-2 text-sm font-medium text-muted-foreground">
-          <Filter className="h-4 w-4" /> Filter by:
+      <div className="flex flex-col gap-8">
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+          <div className="max-w-2xl">
+            <h1 className="text-4xl md:text-6xl font-bold tracking-tight bg-gradient-to-r from-foreground to-foreground/60 bg-clip-text text-transparent">
+              {settings?.siteName || 'The Blog'}
+            </h1>
+            <p className="text-lg text-muted-foreground mt-4 leading-relaxed">
+              {settings?.siteDescription || 'Discover stories, thinking, and expertise from our community.'}
+            </p>
+          </div>
+          <div className="relative w-full md:w-80">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input 
+              className="pl-12 h-12 rounded-full border-muted-foreground/20 focus:border-primary transition-all" 
+              placeholder="Search stories..." 
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
         </div>
-        <Button 
-          variant={selectedCategory === null ? 'default' : 'outline'} 
-          size="sm"
-          onClick={() => setSelectedCategory(null)}
-          className="rounded-full"
-        >
-          All
-        </Button>
-        {categories.map((cat) => (
+
+        {/* Categories Filter */}
+        <div className="flex flex-wrap gap-3 items-center pb-2 overflow-x-auto no-scrollbar">
           <Button 
-            key={cat.id}
-            variant={selectedCategory === cat.id ? 'default' : 'outline'} 
+            variant={selectedCategory === null ? 'default' : 'secondary'} 
             size="sm"
-            onClick={() => setSelectedCategory(cat.id)}
-            className="rounded-full"
+            onClick={() => setSelectedCategory(null)}
+            className="rounded-full px-6"
           >
-            {cat.name}
+            All Stories
           </Button>
-        ))}
+          {categories.map((cat) => (
+            <Button 
+              key={cat.id}
+              variant={selectedCategory === cat.id ? 'default' : 'secondary'} 
+              size="sm"
+              onClick={() => setSelectedCategory(cat.id)}
+              className="rounded-full px-6"
+            >
+              {cat.name}
+            </Button>
+          ))}
+        </div>
       </div>
 
-      <motion.div 
-        initial="hidden"
-        animate="visible"
-        variants={containerVariants}
-        className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3"
-      >
-        {loading ? (
-          Array(6).fill(0).map((_, i) => (
-            <Card key={i} className="overflow-hidden">
-              <Skeleton className="h-48 w-full" />
-              <CardHeader>
+      {loading ? (
+        <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
+          {Array(6).fill(0).map((_, i) => (
+            <Card key={i} className="overflow-hidden border-none shadow-none bg-muted/30">
+              <Skeleton className="h-64 w-full rounded-2xl" />
+              <div className="p-4 space-y-3">
                 <Skeleton className="h-6 w-3/4" />
                 <Skeleton className="h-4 w-1/2" />
-              </CardHeader>
-              <CardContent>
-                <Skeleton className="h-4 w-full" />
-                <Skeleton className="h-4 w-full mt-2" />
-              </CardContent>
+                <Skeleton className="h-20 w-full" />
+              </div>
             </Card>
-          ))
-        ) : filteredPosts.length > 0 ? (
-          filteredPosts.map((post) => {
-            const authorBadge = getBadgeByPoints(post.authorPoints || 0);
-            return (
-              <motion.div key={post.id} variants={itemVariants}>
-                <Card className="group overflow-hidden hover:shadow-lg transition-shadow h-full flex flex-col">
-                  {post.featuredImage && (
-                    <LazyImage 
-                      src={post.featuredImage} 
-                      alt={post.title}
-                      containerClassName="aspect-video"
-                      className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-300"
-                      referrerPolicy="no-referrer"
-                    />
-                  )}
-                  <CardHeader className="flex-1">
-                    <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground mb-2">
-                      <span>{formatDate(post.createdAt?.toDate())}</span>
-                      <span>•</span>
-                      <div className="flex items-center gap-1">
-                        <span 
-                          className="font-medium text-foreground hover:text-primary cursor-pointer transition-colors"
-                          onClick={() => onNavigate('author', post.authorId)}
-                        >
-                          {post.authorName}
-                        </span>
-                        <div className="flex gap-1">
-                          <Badge className={cn("text-[9px] px-1 py-0 h-3.5 border-none text-white", authorBadge.color)}>
-                            {authorBadge.name}
+          ))}
+        </div>
+      ) : filteredPosts.length > 0 ? (
+        <div className="space-y-16">
+          {/* Featured Post */}
+          {!selectedCategory && !searchQuery && featuredPost && (
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="group cursor-pointer"
+              onClick={() => onNavigate('post', featuredPost.slug)}
+            >
+              <div className="grid md:grid-cols-2 gap-8 items-center bg-muted/20 rounded-3xl overflow-hidden p-4 md:p-8 hover:bg-muted/30 transition-colors">
+                <div className="aspect-[16/10] md:aspect-square lg:aspect-video rounded-2xl overflow-hidden">
+                  <LazyImage 
+                    src={featuredPost.featuredImage || 'https://picsum.photos/seed/featured/1200/800'} 
+                    alt={featuredPost.title}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                    referrerPolicy="no-referrer"
+                  />
+                </div>
+                <div className="space-y-6">
+                  <div className="flex items-center gap-3">
+                    <Badge className="bg-primary/10 text-primary border-none hover:bg-primary/20">Featured</Badge>
+                    <span className="text-sm text-muted-foreground">{formatDate(featuredPost.createdAt?.toDate())}</span>
+                  </div>
+                  <h2 className="text-3xl md:text-5xl font-bold leading-tight group-hover:text-primary transition-colors">
+                    {featuredPost.title}
+                  </h2>
+                  <p className="text-lg text-muted-foreground line-clamp-3">
+                    {featuredPost.excerpt}
+                  </p>
+                  <div className="flex items-center gap-3 pt-4">
+                    <Avatar className="h-10 w-10 border-2 border-background">
+                      <AvatarFallback>{featuredPost.authorName.charAt(0)}</AvatarFallback>
+                    </Avatar>
+                    <div className="flex flex-col">
+                      <span className="font-bold text-sm">{featuredPost.authorName}</span>
+                      <span className="text-xs text-muted-foreground">{calculateReadingTime(featuredPost.content)} read</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          )}
+
+          {/* Regular Posts Grid */}
+          <motion.div 
+            initial="hidden"
+            animate="visible"
+            variants={containerVariants}
+            className="grid gap-x-8 gap-y-12 sm:grid-cols-2 lg:grid-cols-3"
+          >
+            {(selectedCategory || searchQuery ? filteredPosts : regularPosts).map((post) => {
+              const authorBadge = getBadgeByPoints(post.authorPoints || 0);
+              return (
+                <motion.div key={post.id} variants={itemVariants}>
+                  <div 
+                    className="group flex flex-col h-full cursor-pointer"
+                    onClick={() => onNavigate('post', post.slug)}
+                  >
+                    <div className="aspect-[16/10] rounded-2xl overflow-hidden mb-6 relative">
+                      <LazyImage 
+                        src={post.featuredImage || `https://picsum.photos/seed/${post.id}/800/500`} 
+                        alt={post.title}
+                        className="object-cover w-full h-full group-hover:scale-110 transition-transform duration-700"
+                        referrerPolicy="no-referrer"
+                      />
+                      {post.categoryId && (
+                        <div className="absolute top-4 left-4">
+                          <Badge variant="secondary" className="glass-card border-none backdrop-blur-md">
+                            {categories.find(c => c.id === post.categoryId)?.name || 'Story'}
                           </Badge>
-                          {post.authorBadges && post.authorBadges.length > 0 && (
-                            <div className="flex gap-1">
-                              {post.authorBadges.slice(0, 1).map(badge => (
-                                <Badge key={badge} variant="secondary" className="text-[9px] px-1 py-0 h-3.5 bg-primary/5 text-primary border-primary/10">
-                                  {badge}
-                                </Badge>
-                              ))}
-                            </div>
-                          )}
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div className="flex-1 space-y-4">
+                      <div className="flex items-center gap-3 text-xs font-medium text-muted-foreground">
+                        <span>{formatDate(post.createdAt?.toDate())}</span>
+                        <span>•</span>
+                        <span>{calculateReadingTime(post.content)} read</span>
+                      </div>
+                      
+                      <h3 className="text-2xl font-bold leading-tight group-hover:text-primary transition-colors line-clamp-2">
+                        {post.title}
+                      </h3>
+                      
+                      <p className="text-muted-foreground line-clamp-2 text-sm leading-relaxed">
+                        {post.excerpt}
+                      </p>
+                      
+                      <div className="flex items-center gap-3 pt-4">
+                        <div className="flex flex-col">
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-sm">{post.authorName}</span>
+                            <Badge className={cn("text-[9px] px-1.5 py-0 h-4 border-none text-white", authorBadge.color)}>
+                              {authorBadge.name}
+                            </Badge>
+                          </div>
                         </div>
                       </div>
                     </div>
-                    <CardTitle className="line-clamp-2 group-hover:text-primary transition-colors cursor-pointer" onClick={() => onNavigate('post', post.slug)}>
-                      {post.title}
-                    </CardTitle>
-                    {post.categoryId && (
-                      <Badge variant="secondary" className="font-normal w-fit mt-2">
-                        {categories.find(c => c.id === post.categoryId)?.name || 'Uncategorized'}
-                      </Badge>
-                    )}
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-muted-foreground line-clamp-3 text-sm">
-                      {post.excerpt}
-                    </p>
-                  </CardContent>
-                  <CardFooter className="pt-0">
-                    <Button 
-                      variant="link" 
-                      className="p-0 h-auto font-semibold"
-                      onClick={() => onNavigate('post', post.slug)}
-                    >
-                      Read More <ArrowRight className="ml-2 h-4 w-4" />
-                    </Button>
-                  </CardFooter>
-                </Card>
-              </motion.div>
-            );
-          })
-        ) : (
-          <div className="col-span-full text-center py-24 border-2 border-dashed rounded-xl">
-            <h3 className="text-xl font-semibold">No posts found</h3>
-            <p className="text-muted-foreground mt-2">We haven't published any posts yet. Check back soon!</p>
-          </div>
-        )}
-      </motion.div>
+                  </div>
+                </motion.div>
+              );
+            })}
+          </motion.div>
+        </div>
+      ) : (
+        <div className="text-center py-32 bg-muted/10 rounded-3xl border-2 border-dashed border-muted">
+          <Search className="h-12 w-12 mx-auto text-muted-foreground/30 mb-4" />
+          <h3 className="text-2xl font-bold">No stories found</h3>
+          <p className="text-muted-foreground mt-2 max-w-xs mx-auto">We couldn't find any stories matching your criteria. Try adjusting your search or filters.</p>
+          <Button variant="outline" className="mt-6 rounded-full" onClick={() => {setSelectedCategory(null); setSearchQuery('');}}>
+            Clear all filters
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

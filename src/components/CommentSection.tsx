@@ -100,6 +100,22 @@ export default function CommentSection({ postId }: CommentSectionProps) {
       } else {
         setNewComment('');
       }
+
+      // Award points for commenting (2 points)
+      if (user) {
+        const userRef = doc(db, 'users', user.uid);
+        const publicProfileRef = doc(db, 'public_profiles', user.uid);
+        
+        await updateDoc(userRef, {
+          points: increment(2),
+          updatedAt: serverTimestamp()
+        });
+        
+        await updateDoc(publicProfileRef, {
+          points: increment(2)
+        });
+      }
+
       toast.success("AI Guard verified: Comment posted!", {
         icon: <ShieldCheck className="h-4 w-4 text-green-500" />
       });

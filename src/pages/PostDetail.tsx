@@ -186,6 +186,57 @@ export default function PostDetail({ slug, onNavigate }: PostDetailProps) {
     }
   };
 
+  const renderContentWithAds = (content: string) => {
+    const sanitizedContent = DOMPurify.sanitize(content);
+    
+    if (!settings?.adInPost) {
+      return <div className="prose-custom" dangerouslySetInnerHTML={{ __html: sanitizedContent }} />;
+    }
+
+    const interval = Math.max(1, Number(settings.adParagraphInterval) || 3);
+    const maxAds = Math.max(1, Number(settings.adMaxCount) || 3);
+
+    // Split by paragraph tags (case-insensitive)
+    // We use a regex to handle potential variations in the tag
+    const paragraphs = sanitizedContent.split(/<\/p>/i).map(p => p.trim()).filter(p => p !== '');
+    
+    if (paragraphs.length <= interval) {
+      return (
+        <>
+          <div className="prose-custom" dangerouslySetInnerHTML={{ __html: sanitizedContent }} />
+          <AdSpace slot="adInPost" className="my-12 flex justify-center border-y py-8" />
+        </>
+      );
+    }
+
+    const result: React.ReactNode[] = [];
+    let currentAds = 0;
+
+    for (let i = 0; i < paragraphs.length; i++) {
+      result.push(
+        <div 
+          key={`p-${i}`} 
+          className="prose-custom" 
+          dangerouslySetInnerHTML={{ __html: paragraphs[i] + '</p>' }} 
+        />
+      );
+
+      // Insert ad after every 'interval' paragraphs, up to 'maxAds'
+      if ((i + 1) % interval === 0 && (i + 1) < paragraphs.length && currentAds < maxAds) {
+        result.push(
+          <AdSpace 
+            key={`ad-${currentAds}`} 
+            slot="adInPost" 
+            className="my-8 flex justify-center border-y py-6 bg-muted/10" 
+          />
+        );
+        currentAds++;
+      }
+    }
+
+    return <>{result}</>;
+  };
+
   if (loading) {
     return (
       <div className="max-w-3xl mx-auto space-y-8">
@@ -216,147 +267,128 @@ export default function PostDetail({ slug, onNavigate }: PostDetailProps) {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
-      className="max-w-3xl mx-auto space-y-8"
+      className="max-w-screen-md mx-auto pb-24 px-4 md:px-0"
     >
       {/* Reading Progress Bar */}
-      <div className="fixed top-0 left-0 w-full h-1 z-[100] bg-muted/30">
-        <div 
-          className="h-full bg-primary transition-all duration-150 ease-out" 
+      <div className="fixed top-0 left-0 w-full h-1.5 z-[100] bg-muted/20">
+        <motion.div 
+          className="h-full bg-primary shadow-[0_0_10px_rgba(var(--primary),0.5)]" 
           style={{ width: `${scrollProgress * 100}%` }}
         />
       </div>
 
       <Helmet>
-        <title>{post.title} | {settings?.siteName || 'কুড়ানোগল্প.পাতা.বাংলা'}</title>
+        <title>{post.title} | {settings?.siteName || 'গল্পগ্রাম'}</title>
         <meta name="description" content={post.excerpt} />
-        <link rel="canonical" href={window.location.href} />
-        
-        {/* Open Graph / Facebook */}
-        <meta property="og:type" content="article" />
-        <meta property="og:url" content={window.location.href} />
-        <meta property="og:title" content={post.title} />
-        <meta property="og:description" content={post.excerpt} />
-        {post.featuredImage && <meta property="og:image" content={post.featuredImage} />}
-        <meta property="article:published_time" content={post.createdAt?.toDate?.()?.toISOString() || new Date().toISOString()} />
-        <meta property="article:author" content={post.authorName} />
-
-        {/* Twitter */}
-        <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:url" content={window.location.href} />
-        <meta name="twitter:title" content={post.title} />
-        <meta name="twitter:description" content={post.excerpt} />
-        {post.featuredImage && <meta name="twitter:image" content={post.featuredImage} />}
       </Helmet>
-      <Button 
-        variant="ghost" 
-        size="sm" 
-        onClick={() => onNavigate('blog')}
-        className="mb-4"
-      >
-        <ArrowLeft className="mr-2 h-4 w-4" /> Back to Blog
-      </Button>
 
-      <header className="space-y-6">
-        <div className="space-y-2">
+      <div className="flex items-center justify-between mb-12">
+        <Button 
+          variant="ghost" 
+          size="sm" 
+          onClick={() => onNavigate('blog')}
+          className="rounded-full hover:bg-primary/5 text-muted-foreground hover:text-primary transition-all"
+        >
+          <ArrowLeft className="mr-2 h-4 w-4" /> Back to Stories
+        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="icon" onClick={handleShare} className="rounded-full h-9 w-9">
+            <Share2 className="h-4 w-4" />
+          </Button>
+          <Button variant="ghost" size="icon" onClick={handleBookmark} disabled={isBookmarking} className="rounded-full h-9 w-9">
+            {isBookmarked ? <BookmarkCheck className="h-4 w-4 text-primary" /> : <Bookmark className="h-4 w-4" />}
+          </Button>
+        </div>
+      </div>
+
+      <header className="space-y-8 mb-12">
+        <div className="space-y-4 text-center">
           {post.categoryId && (
-            <Badge variant="secondary" className="mb-2">
-              <FolderTree className="mr-1 h-3 w-3" />
-              {categories.find(c => c.id === post.categoryId)?.name || 'Uncategorized'}
+            <Badge variant="secondary" className="bg-primary/5 text-primary border-none px-4 py-1 rounded-full">
+              {categories.find(c => c.id === post.categoryId)?.name || 'Story'}
             </Badge>
           )}
-          <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight">
+          <h1 className="text-4xl md:text-6xl font-bold tracking-tight leading-[1.1] text-balance">
             {post.title}
           </h1>
-          {post.tags && post.tags.length > 0 && (
-            <div className="flex flex-wrap gap-2 pt-2">
-              {post.tags.map(tag => (
-                <Badge key={tag} variant="outline" className="text-xs font-normal">
-                  #{tag}
-                </Badge>
-              ))}
-            </div>
-          )}
+          <p className="text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed italic">
+            "{post.excerpt}"
+          </p>
         </div>
         
-        <div className="flex items-center justify-between border-y py-4">
-          <div className="flex items-center gap-3">
-            <Avatar>
-              <AvatarFallback>{post.authorName.charAt(0)}</AvatarFallback>
+        <div className="flex flex-col items-center gap-6 pt-4">
+          <div className="flex items-center gap-4">
+            <Avatar className="h-12 w-12 ring-2 ring-primary/10 ring-offset-2">
+              <AvatarFallback className="bg-primary/5 text-primary font-bold">{post.authorName.charAt(0)}</AvatarFallback>
             </Avatar>
-            <div className="flex flex-col">
+            <div className="flex flex-col items-start">
               <div className="flex items-center gap-2">
                 <span 
-                  className="text-sm font-semibold hover:text-primary cursor-pointer transition-colors"
+                  className="font-bold text-lg hover:text-primary cursor-pointer transition-colors"
                   onClick={() => onNavigate('author', post.authorId)}
                 >
                   {post.authorName}
                 </span>
                 {authorProfile?.role === 'admin' && (
-                  <span title="Admin">
-                    <CheckCircle className="h-3.5 w-3.5 text-blue-500" />
-                  </span>
+                  <CheckCircle className="h-4 w-4 text-blue-500" />
                 )}
-                <div className="flex gap-1">
-                  <Badge className={cn("text-[10px] px-1 py-0 h-4 border-none text-white", authorBadge.color)}>
-                    {authorBadge.name}
-                  </Badge>
-                  {authorProfile?.badges?.map((badge: string) => (
-                    <Badge key={badge} variant="secondary" className="text-[10px] px-1 py-0 h-4 bg-primary/10 text-primary border-primary/20">
-                      {badge}
-                    </Badge>
-                  ))}
-                </div>
+                <Badge className={cn("text-[10px] px-2 py-0 h-5 border-none text-white", authorBadge.color)}>
+                  {authorBadge.name}
+                </Badge>
               </div>
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <Calendar className="h-3 w-3" />
-                <span>{formatDate(post.createdAt?.toDate())}</span>
-                <span className="mx-1">•</span>
-                <Eye className="h-3 w-3" />
-                <span>{post.viewCount || 0} views</span>
-                <span className="mx-1">•</span>
-                <Share2 className="h-3 w-3" />
-                <span>{post.shareCount || 0} shares</span>
-                <span className="mx-1">•</span>
-                <Clock className="h-3 w-3" />
-                <span>{calculateReadingTime(post.content)}</span>
+              <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                <span className="flex items-center gap-1"><Calendar className="h-3 w-3" /> {formatDate(post.createdAt?.toDate())}</span>
+                <span>•</span>
+                <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> {calculateReadingTime(post.content)} read</span>
               </div>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          
+          <div className="flex items-center gap-6 text-sm text-muted-foreground border-y border-muted/30 py-4 w-full justify-center">
+            <span className="flex items-center gap-1.5"><Eye className="h-4 w-4" /> {post.viewCount || 0} views</span>
+            <span className="flex items-center gap-1.5"><Share2 className="h-4 w-4" /> {post.shareCount || 0} shares</span>
             <ReactionButton postId={post.id} initialLikeCount={post.likeCount || 0} />
-            <Button variant="outline" size="icon" onClick={handleBookmark} disabled={isBookmarking} title={isBookmarked ? "Remove Bookmark" : "Save Post"}>
-              {isBookmarked ? <BookmarkCheck className="h-4 w-4 text-primary" /> : <Bookmark className="h-4 w-4" />}
-            </Button>
           </div>
         </div>
 
         {post.featuredImage && (
-          <div className="aspect-video overflow-hidden rounded-xl border">
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="aspect-video overflow-hidden rounded-[2rem] shadow-2xl shadow-primary/5 border border-muted/20"
+          >
             <img 
               src={post.featuredImage} 
               alt={post.title}
               className="object-cover w-full h-full"
               referrerPolicy="no-referrer"
             />
-          </div>
+          </motion.div>
         )}
       </header>
 
-      <div className="flex flex-wrap items-center justify-end gap-3">
+      <div className="flex flex-wrap items-center justify-center gap-4 mb-12">
         <TextToSpeech text={post.content} />
         <AITextToSpeech text={post.content} />
       </div>
 
-      <div 
-        className="prose-custom"
-        dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(post.content) }}
-      />
+      <div className="relative">
+        {renderContentWithAds(post.content)}
+      </div>
+
+      {post.tags && post.tags.length > 0 && (
+        <div className="flex flex-wrap gap-2 py-12 border-b border-muted/30">
+          {post.tags.map(tag => (
+            <Badge key={tag} variant="secondary" className="bg-muted/50 hover:bg-primary/10 hover:text-primary transition-colors cursor-pointer px-4 py-1 rounded-full text-sm font-normal">
+              #{tag}
+            </Badge>
+          ))}
+        </div>
+      )}
 
       <div className="py-6 border-t mt-8">
         <ShareButtons postId={post.id} title={post.title} url={window.location.href} />
       </div>
-
-      <AdSpace slot="adInPost" className="my-12 flex justify-center border-y py-8" />
 
       <footer className="pt-12 border-t space-y-12">
         {relatedPosts.length > 0 && (

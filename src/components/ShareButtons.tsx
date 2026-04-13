@@ -2,7 +2,8 @@ import { Button } from '@/components/ui/button';
 import { Share2, Twitter, Facebook, Link as LinkIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { db } from '../lib/firebase';
-import { doc, updateDoc, increment } from 'firebase/firestore';
+import { doc, updateDoc, increment, serverTimestamp } from 'firebase/firestore';
+import { useAuth } from '../lib/auth-context';
 
 interface ShareButtonsProps {
   postId: string;
@@ -11,11 +12,28 @@ interface ShareButtonsProps {
 }
 
 export default function ShareButtons({ postId, title, url }: ShareButtonsProps) {
+  const { user } = useAuth();
+
   const trackShare = async () => {
     try {
       await updateDoc(doc(db, 'posts', postId), {
         shareCount: increment(1)
       });
+
+      // Award points for sharing (3 points)
+      if (user) {
+        const userRef = doc(db, 'users', user.uid);
+        const publicProfileRef = doc(db, 'public_profiles', user.uid);
+        
+        await updateDoc(userRef, {
+          points: increment(3),
+          updatedAt: serverTimestamp()
+        });
+        
+        await updateDoc(publicProfileRef, {
+          points: increment(3)
+        });
+      }
     } catch (error) {
       console.error('Error tracking share:', error);
     }

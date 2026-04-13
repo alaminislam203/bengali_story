@@ -32,7 +32,7 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { toast } from 'sonner';
 import { slugify, formatDate, cn, joditConfig } from '../lib/utils';
-import { Plus, Edit, Trash2, Eye, FileText, Settings, BarChart3, Heart, Layout, Users, MessageSquare, Check, X, Tags, FolderTree, Mail, Send, Activity, Pin, Bell, ExternalLink, ShieldCheck, ShieldAlert, Info, Sparkles, Wand2, Gauge, AlertCircle, Loader2 } from 'lucide-react';
+import { Plus, Edit, Trash2, Eye, FileText, Settings, BarChart3, Heart, Layout, Users, MessageSquare, Check, X, Tags, FolderTree, Mail, Send, Activity, Pin, Bell, ExternalLink, ShieldCheck, ShieldAlert, Info, Sparkles, Wand2, Gauge, AlertCircle, Loader2, CheckCircle } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
 import JoditEditor from 'jodit-react';
 import { useRef } from 'react';
@@ -173,6 +173,8 @@ function AdminDashboardContent({ onNavigate }: AdminDashboardProps) {
   const [adSidebar, setAdSidebar] = useState('');
   const [adFooter, setAdFooter] = useState('');
   const [adInPost, setAdInPost] = useState('');
+  const [adParagraphInterval, setAdParagraphInterval] = useState(3);
+  const [adMaxCount, setAdMaxCount] = useState(3);
   const [antiAdBlockEnabled, setAntiAdBlockEnabled] = useState(false);
   const [antiAdBlockMessage, setAntiAdBlockMessage] = useState('');
   const [primaryColor, setPrimaryColor] = useState('#3b82f6');
@@ -203,6 +205,7 @@ function AdminDashboardContent({ onNavigate }: AdminDashboardProps) {
   const [editingUser, setEditingUser] = useState<PublicProfile | null>(null);
   const [userBadges, setUserBadges] = useState<string[]>([]);
   const [userRole, setUserRole] = useState('');
+  const [isUserVerified, setIsUserVerified] = useState(false);
 
   // Newsletter Template state
   const [isTemplateDialogOpen, setIsTemplateDialogOpen] = useState(false);
@@ -219,6 +222,8 @@ function AdminDashboardContent({ onNavigate }: AdminDashboardProps) {
       setAdSidebar(settings.adSidebar || '');
       setAdFooter(settings.adFooter || '');
       setAdInPost(settings.adInPost || '');
+      setAdParagraphInterval(settings.adParagraphInterval || 3);
+      setAdMaxCount(settings.adMaxCount || 3);
       setAntiAdBlockEnabled(settings.antiAdBlockEnabled || false);
       setAntiAdBlockMessage(settings.antiAdBlockMessage || '');
       setPrimaryColor(settings.primaryColor || '#3b82f6');
@@ -377,17 +382,25 @@ function AdminDashboardContent({ onNavigate }: AdminDashboardProps) {
           const authorRef = doc(db, 'public_profiles', editingPost.authorId);
           const authorDoc = await getDoc(authorRef);
           if (authorDoc.exists()) {
-            const currentPoints = authorDoc.data().points || 0;
+            const authorData = authorDoc.data();
+            const currentPoints = authorData.points || 0;
+            const pointsToAdd = 15; // Award 15 points for a published post (total 20 with submission)
+            
             await updateDoc(authorRef, {
-              points: currentPoints + 10, // Award 10 points for a published post
+              points: currentPoints + pointsToAdd,
               updatedAt: serverTimestamp()
             });
             
             // Also update the private user doc
             await updateDoc(doc(db, 'users', editingPost.authorId), {
-              points: currentPoints + 10,
+              points: currentPoints + pointsToAdd,
               updatedAt: serverTimestamp()
             });
+
+            // Update denormalized data in the post
+            updatedPostData.authorName = authorData.displayName || editingPost.authorName;
+            updatedPostData.authorPoints = currentPoints + pointsToAdd;
+            updatedPostData.authorBadges = authorData.badges || [];
           }
           updatedPostData.publishedAt = serverTimestamp();
         }
@@ -517,6 +530,8 @@ function AdminDashboardContent({ onNavigate }: AdminDashboardProps) {
         adSidebar,
         adFooter,
         adInPost,
+        adParagraphInterval,
+        adMaxCount,
         antiAdBlockEnabled,
         antiAdBlockMessage,
         primaryColor,
@@ -545,11 +560,13 @@ function AdminDashboardContent({ onNavigate }: AdminDashboardProps) {
       await updateDoc(doc(db, 'public_profiles', editingUser.uid), {
         role: userRole,
         badges: userBadges,
+        isVerified: isUserVerified,
       });
       
       // Also update the main users collection if necessary
       await updateDoc(doc(db, 'users', editingUser.uid), {
         role: userRole,
+        isVerified: isUserVerified,
       });
 
       toast.success("User updated successfully!");
@@ -564,6 +581,7 @@ function AdminDashboardContent({ onNavigate }: AdminDashboardProps) {
     setEditingUser(user);
     setUserRole(user.role || 'reader');
     setUserBadges(user.badges || []);
+    setIsUserVerified(user.isVerified || false);
     setIsUserDialogOpen(true);
   };
 
@@ -669,13 +687,24 @@ function AdminDashboardContent({ onNavigate }: AdminDashboardProps) {
         
         if (publicProfileDoc.exists()) {
           const authorData = publicProfileDoc.data();
+          const pointsToAdd = 15; // Give 15 points for an approved post
+          
           await updateDoc(publicProfileRef, {
-            points: increment(10) // Give 10 points for an approved post
+            points: increment(pointsToAdd),
+            updatedAt: serverTimestamp()
           });
 
-          // Update post with current author badges for denormalization
+          // Also update the private user doc
+          await updateDoc(doc(db, 'users', post.authorId), {
+            points: increment(pointsToAdd),
+            updatedAt: serverTimestamp()
+          });
+
+          // Update post with current author badges and points for denormalization
           await updateDoc(doc(db, 'posts', post.id), {
-            authorBadges: authorData.badges || []
+            authorName: authorData.displayName || post.authorName,
+            authorBadges: authorData.badges || [],
+            authorPoints: (authorData.points || 0) + pointsToAdd
           });
         }
       }
@@ -749,45 +778,110 @@ function AdminDashboardContent({ onNavigate }: AdminDashboardProps) {
   const totalLikes = posts.reduce((acc, post) => acc + (post.likeCount || 0), 0);
 
   return (
-    <div className="space-y-8">
+    <div className="container max-w-[1400px] py-12 space-y-12">
       <AIOnboarding onNavigate={onNavigate} />
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Admin Dashboard</h1>
-          <p className="text-muted-foreground">Manage your blog content and settings.</p>
+      
+      <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
+        <div className="space-y-2">
+          <h1 className="text-3xl md:text-4xl font-bold tracking-tight">Admin Console</h1>
+          <p className="text-muted-foreground text-base md:text-lg">Your central hub for content, community, and configuration.</p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <Button variant="outline" size="sm" onClick={() => handleOpenTagDialog()}>
-            <Tags className="mr-2 h-4 w-4" /> New Tag
+        <div className="flex flex-wrap gap-2 md:gap-3">
+          <Button variant="outline" className="rounded-full px-4 md:px-6 h-10 md:h-12 border-muted/20 bg-muted/5 text-xs md:text-sm flex-1 sm:flex-none" onClick={() => handleOpenTagDialog()}>
+            <Tags className="mr-2 h-4 w-4" /> Tag
           </Button>
-          <Button variant="outline" size="sm" onClick={() => handleOpenCategoryDialog()}>
-            <FolderTree className="mr-2 h-4 w-4" /> New Category
+          <Button variant="outline" className="rounded-full px-4 md:px-6 h-10 md:h-12 border-muted/20 bg-muted/5 text-xs md:text-sm flex-1 sm:flex-none" onClick={() => handleOpenCategoryDialog()}>
+            <FolderTree className="mr-2 h-4 w-4" /> Category
           </Button>
-          <Button variant="outline" size="sm" onClick={() => handleOpenPageDialog()}>
-            <Layout className="mr-2 h-4 w-4" /> New Page
+          <Button variant="outline" className="rounded-full px-4 md:px-6 h-10 md:h-12 border-muted/20 bg-muted/5 text-xs md:text-sm flex-1 sm:flex-none" onClick={() => handleOpenPageDialog()}>
+            <Layout className="mr-2 h-4 w-4" /> Page
           </Button>
-          <Button size="sm" onClick={() => handleOpenDialog()}>
+          <Button className="rounded-full px-6 md:px-8 h-10 md:h-12 shadow-xl shadow-primary/20 text-xs md:text-sm w-full sm:w-auto" onClick={() => handleOpenDialog()}>
             <Plus className="mr-2 h-4 w-4" /> New Post
           </Button>
         </div>
       </div>
 
-      <Tabs defaultValue="posts" className="space-y-4">
-        <TabsList className="flex flex-wrap h-auto gap-2 justify-start mb-8">
-          <TabsTrigger value="posts" className="gap-2"><FileText className="h-4 w-4" /> Posts</TabsTrigger>
-          <TabsTrigger value="analytics" className="gap-2"><BarChart3 className="h-4 w-4" /> Analytics</TabsTrigger>
-          <TabsTrigger value="pages" className="gap-2"><Layout className="h-4 w-4" /> Pages</TabsTrigger>
-          <TabsTrigger value="categories" className="gap-2"><FolderTree className="h-4 w-4" /> Categories</TabsTrigger>
-          <TabsTrigger value="tags" className="gap-2"><Tags className="h-4 w-4" /> Tags</TabsTrigger>
-          <TabsTrigger value="comments" className="gap-2"><MessageSquare className="h-4 w-4" /> Comments</TabsTrigger>
-          <TabsTrigger value="subscribers" className="gap-2"><Users className="h-4 w-4" /> Subscribers</TabsTrigger>
-          <TabsTrigger value="newsletter" className="gap-2"><Mail className="h-4 w-4" /> Newsletter</TabsTrigger>
-          <TabsTrigger value="notifications" className="gap-2"><Bell className="h-4 w-4" /> Notifications</TabsTrigger>
-          <TabsTrigger value="messages" className="gap-2"><Mail className="h-4 w-4" /> Messages</TabsTrigger>
-          <TabsTrigger value="users" className="gap-2"><Users className="h-4 w-4" /> Users</TabsTrigger>
-          <TabsTrigger value="security" className="gap-2"><ShieldCheck className="h-4 w-4" /> Security</TabsTrigger>
-          <TabsTrigger value="settings" className="gap-2"><Settings className="h-4 w-4" /> Settings</TabsTrigger>
-        </TabsList>
+      {/* Stats Grid */}
+      <div className="grid gap-4 md:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+          <Card className="rounded-2xl md:rounded-3xl border-none bg-primary/5 p-4 md:p-6 flex items-center gap-4 md:gap-6">
+            <div className="h-12 w-12 md:h-14 md:w-14 rounded-xl md:rounded-2xl bg-primary/10 flex items-center justify-center shrink-0">
+              <FileText className="h-6 w-6 md:h-7 md:w-7 text-primary" />
+            </div>
+            <div>
+              <p className="text-2xl md:text-3xl font-bold">{posts.length}</p>
+              <p className="text-[10px] md:text-xs font-bold uppercase tracking-widest text-muted-foreground">Total Stories</p>
+            </div>
+          </Card>
+        </motion.div>
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+          <Card className="rounded-2xl md:rounded-3xl border-none bg-secondary/5 p-4 md:p-6 flex items-center gap-4 md:gap-6">
+            <div className="h-12 w-12 md:h-14 md:w-14 rounded-xl md:rounded-2xl bg-secondary/10 flex items-center justify-center shrink-0">
+              <Eye className="h-6 w-6 md:h-7 md:w-7 text-secondary" />
+            </div>
+            <div>
+              <p className="text-2xl md:text-3xl font-bold">{totalViews.toLocaleString()}</p>
+              <p className="text-[10px] md:text-xs font-bold uppercase tracking-widest text-muted-foreground">Total Views</p>
+            </div>
+          </Card>
+        </motion.div>
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
+          <Card className="rounded-2xl md:rounded-3xl border-none bg-accent/5 p-4 md:p-6 flex items-center gap-4 md:gap-6">
+            <div className="h-12 w-12 md:h-14 md:w-14 rounded-xl md:rounded-2xl bg-accent/10 flex items-center justify-center shrink-0">
+              <Users className="h-6 w-6 md:h-7 md:w-7 text-accent" />
+            </div>
+            <div>
+              <p className="text-2xl md:text-3xl font-bold">{users.length}</p>
+              <p className="text-[10px] md:text-xs font-bold uppercase tracking-widest text-muted-foreground">Community</p>
+            </div>
+          </Card>
+        </motion.div>
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
+          <Card className="rounded-2xl md:rounded-3xl border-none bg-orange-500/5 p-4 md:p-6 flex items-center gap-4 md:gap-6">
+            <div className="h-12 w-12 md:h-14 md:w-14 rounded-xl md:rounded-2xl bg-orange-500/10 flex items-center justify-center shrink-0">
+              <MessageSquare className="h-6 w-6 md:h-7 md:w-7 text-orange-500" />
+            </div>
+            <div>
+              <p className="text-2xl md:text-3xl font-bold">{allComments.length}</p>
+              <p className="text-[10px] md:text-xs font-bold uppercase tracking-widest text-muted-foreground">Comments</p>
+            </div>
+          </Card>
+        </motion.div>
+      </div>
+
+      <Tabs defaultValue="posts" className="space-y-8">
+        <div className="flex justify-center overflow-x-auto no-scrollbar pb-2 -mx-4 px-4">
+          <TabsList className="h-12 md:h-14 p-1 md:p-1.5 bg-muted/30 rounded-full border border-muted/20 shrink-0">
+            <TabsTrigger value="posts" className="rounded-full px-3 md:px-6 text-xs md:text-sm data-[state=active]:bg-background data-[state=active]:shadow-sm">
+              <FileText className="h-3.5 w-3.5 md:h-4 md:w-4 mr-1.5 md:mr-2" /> <span className="hidden xs:inline">Stories</span><span className="xs:hidden">Posts</span>
+            </TabsTrigger>
+            <TabsTrigger value="users" className="rounded-full px-3 md:px-6 text-xs md:text-sm data-[state=active]:bg-background data-[state=active]:shadow-sm">
+              <Users className="h-3.5 w-3.5 md:h-4 md:w-4 mr-1.5 md:mr-2" /> Users
+            </TabsTrigger>
+            <TabsTrigger value="pages" className="rounded-full px-3 md:px-6 text-xs md:text-sm data-[state=active]:bg-background data-[state=active]:shadow-sm">
+              <Layout className="h-3.5 w-3.5 md:h-4 md:w-4 mr-1.5 md:mr-2" /> Pages
+            </TabsTrigger>
+            <TabsTrigger value="categories" className="rounded-full px-3 md:px-6 text-xs md:text-sm data-[state=active]:bg-background data-[state=active]:shadow-sm">
+              <FolderTree className="h-3.5 w-3.5 md:h-4 md:w-4 mr-1.5 md:mr-2" /> <span className="hidden xs:inline">Categories</span><span className="xs:hidden">Cats</span>
+            </TabsTrigger>
+            <TabsTrigger value="comments" className="rounded-full px-3 md:px-6 text-xs md:text-sm data-[state=active]:bg-background data-[state=active]:shadow-sm">
+              <MessageSquare className="h-3.5 w-3.5 md:h-4 md:w-4 mr-1.5 md:mr-2" /> <span className="hidden xs:inline">Comments</span><span className="xs:hidden">Comm</span>
+            </TabsTrigger>
+            <TabsTrigger value="newsletter" className="rounded-full px-3 md:px-6 text-xs md:text-sm data-[state=active]:bg-background data-[state=active]:shadow-sm">
+              <Mail className="h-3.5 w-3.5 md:h-4 md:w-4 mr-1.5 md:mr-2" /> <span className="hidden xs:inline">Newsletter</span><span className="xs:hidden">News</span>
+            </TabsTrigger>
+            <TabsTrigger value="settings" className="rounded-full px-3 md:px-6 text-xs md:text-sm data-[state=active]:bg-background data-[state=active]:shadow-sm">
+              <Settings className="h-3.5 w-3.5 md:h-4 md:w-4 mr-1.5 md:mr-2" /> <span className="hidden xs:inline">Settings</span><span className="xs:hidden">Set</span>
+            </TabsTrigger>
+            <TabsTrigger value="analytics" className="rounded-full px-3 md:px-6 text-xs md:text-sm data-[state=active]:bg-background data-[state=active]:shadow-sm">
+              <BarChart3 className="h-3.5 w-3.5 md:h-4 md:w-4 mr-1.5 md:mr-2" /> <span className="hidden xs:inline">Analytics</span><span className="xs:hidden">Stats</span>
+            </TabsTrigger>
+            <TabsTrigger value="security" className="rounded-full px-3 md:px-6 text-xs md:text-sm data-[state=active]:bg-background data-[state=active]:shadow-sm">
+              <ShieldCheck className="h-3.5 w-3.5 md:h-4 md:w-4 mr-1.5 md:mr-2" /> <span className="hidden xs:inline">Security</span><span className="xs:hidden">Sec</span>
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         <TabsContent value="posts" className="space-y-4">
           <Card>
@@ -818,49 +912,54 @@ function AdminDashboardContent({ onNavigate }: AdminDashboardProps) {
                         hidden: { opacity: 0, x: -10 },
                         visible: { opacity: 1, x: 0 }
                       }}
-                      className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
+                      className="flex flex-col sm:flex-row sm:items-center justify-between p-3 md:p-4 border rounded-xl hover:bg-muted/50 transition-all hover:shadow-md gap-4"
                     >
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <h3 className="font-semibold">{post.title}</h3>
-                          {post.isPinned && (
-                            <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20">
-                              <Pin className="h-3 w-3 mr-1 rotate-45" /> Pinned
+                      <div className="space-y-1.5">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h3 className="font-semibold text-sm md:text-base leading-tight">{post.title}</h3>
+                          <div className="flex items-center gap-1.5">
+                            {post.isPinned && (
+                              <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20 text-[10px] px-1.5 py-0 h-5">
+                                <Pin className="h-2.5 w-2.5 mr-1 rotate-45" /> Pinned
+                              </Badge>
+                            )}
+                            <Badge variant={post.status === 'published' ? 'default' : 'secondary'} className="text-[10px] px-1.5 py-0 h-5">
+                              {post.status}
                             </Badge>
-                          )}
-                          <Badge variant={post.status === 'published' ? 'default' : 'secondary'}>
-                            {post.status}
-                          </Badge>
+                          </div>
                         </div>
-                        <p className="text-xs text-muted-foreground">
-                          Slug: {post.slug} • Views: {post.viewCount || 0} • Likes: {post.likeCount || 0}
-                        </p>
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] md:text-xs text-muted-foreground">
+                          <span className="flex items-center gap-1"><Eye className="h-3 w-3" /> {post.viewCount || 0}</span>
+                          <span className="flex items-center gap-1"><Heart className="h-3 w-3" /> {post.likeCount || 0}</span>
+                          <span className="hidden sm:inline opacity-50">•</span>
+                          <span className="truncate max-w-[150px]">/{post.slug}</span>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1 md:gap-2 justify-end pt-2 sm:pt-0 border-t sm:border-none">
                         {post.status === 'published' && (
                           <Button 
                             variant="ghost" 
                             size="icon" 
-                            className={post.isPinned ? "text-primary" : "text-muted-foreground"}
+                            className={cn("h-8 w-8 rounded-full", post.isPinned ? "text-primary bg-primary/10" : "text-muted-foreground")}
                             onClick={() => handleTogglePin(post)}
                             title={post.isPinned ? "Unpin from Home" : "Pin to Home"}
                           >
-                            <Pin className={cn("h-4 w-4", post.isPinned && "fill-primary rotate-45")} />
+                            <Pin className={cn("h-3.5 w-3.5", post.isPinned && "fill-primary rotate-45")} />
                           </Button>
                         )}
                         {post.status === 'pending' && (
-                          <Button variant="outline" size="sm" className="text-green-600 border-green-200 hover:bg-green-50" onClick={() => handleApprovePost(post)}>
-                            <Check className="h-4 w-4 mr-1" /> Approve
+                          <Button variant="outline" size="sm" className="h-8 rounded-full text-[10px] md:text-xs text-green-600 border-green-200 hover:bg-green-50" onClick={() => handleApprovePost(post)}>
+                            <Check className="h-3.5 w-3.5 mr-1" /> Approve
                           </Button>
                         )}
-                        <Button variant="ghost" size="icon" onClick={() => onNavigate('post', post.slug)}>
-                          <Eye className="h-4 w-4" />
+                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => onNavigate('post', post.slug)}>
+                          <Eye className="h-3.5 w-3.5" />
                         </Button>
-                        <Button variant="ghost" size="icon" onClick={() => handleOpenDialog(post)}>
-                          <Edit className="h-4 w-4" />
+                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => handleOpenDialog(post)}>
+                          <Edit className="h-3.5 w-3.5" />
                         </Button>
-                        <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleDelete(post.id)}>
-                          <Trash2 className="h-4 w-4" />
+                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full text-destructive hover:bg-destructive/10" onClick={() => handleDelete(post.id)}>
+                          <Trash2 className="h-3.5 w-3.5" />
                         </Button>
                       </div>
                     </motion.div>
@@ -885,24 +984,24 @@ function AdminDashboardContent({ onNavigate }: AdminDashboardProps) {
                   <p>Loading pages...</p>
                 ) : pages.length > 0 ? (
                   pages.map((page) => (
-                    <div key={page.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors">
+                    <div key={page.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors gap-4">
                       <div className="space-y-1">
                         <div className="flex items-center gap-2">
-                          <h3 className="font-semibold">{page.title}</h3>
-                          <Badge variant={page.status === 'published' ? 'default' : 'secondary'}>
+                          <h3 className="font-semibold text-sm md:text-base">{page.title}</h3>
+                          <Badge variant={page.status === 'published' ? 'default' : 'secondary'} className="text-[10px] h-5">
                             {page.status}
                           </Badge>
                         </div>
-                        <p className="text-xs text-muted-foreground">Slug: {page.slug}</p>
+                        <p className="text-[10px] md:text-xs text-muted-foreground">Slug: {page.slug}</p>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <Button variant="ghost" size="icon" onClick={() => onNavigate('static', page.slug)}>
+                      <div className="flex items-center gap-1 md:gap-2 justify-end">
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onNavigate('static', page.slug)}>
                           <Eye className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="icon" onClick={() => handleOpenPageDialog(page)}>
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleOpenPageDialog(page)}>
                           <Edit className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handlePageDelete(page.id)}>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handlePageDelete(page.id)}>
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
@@ -928,16 +1027,16 @@ function AdminDashboardContent({ onNavigate }: AdminDashboardProps) {
                   <p>Loading categories...</p>
                 ) : categories.length > 0 ? (
                   categories.map((cat) => (
-                    <div key={cat.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors">
+                    <div key={cat.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors gap-4">
                       <div className="space-y-1">
-                        <h3 className="font-semibold">{cat.name}</h3>
-                        <p className="text-xs text-muted-foreground">Slug: {cat.slug}</p>
+                        <h3 className="font-semibold text-sm md:text-base">{cat.name}</h3>
+                        <p className="text-[10px] md:text-xs text-muted-foreground">Slug: {cat.slug}</p>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <Button variant="ghost" size="icon" onClick={() => handleOpenCategoryDialog(cat)}>
+                      <div className="flex items-center gap-1 md:gap-2 justify-end">
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleOpenCategoryDialog(cat)}>
                           <Edit className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleCategoryDelete(cat.id)}>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleCategoryDelete(cat.id)}>
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
@@ -998,30 +1097,30 @@ function AdminDashboardContent({ onNavigate }: AdminDashboardProps) {
                 ) : allComments.length > 0 ? (
                   allComments.map((comment) => (
                     <div key={comment.id} className="p-4 border rounded-lg space-y-3">
-                      <div className="flex items-center justify-between">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                         <div className="flex items-center gap-2">
-                          <span className="font-semibold">{comment.authorName}</span>
-                          <Badge variant={comment.status === 'approved' ? 'default' : 'secondary'}>
+                          <span className="font-semibold text-sm">{comment.authorName}</span>
+                          <Badge variant={comment.status === 'approved' ? 'default' : 'secondary'} className="text-[10px] h-5">
                             {comment.status}
                           </Badge>
                         </div>
-                        <span className="text-xs text-muted-foreground">
+                        <span className="text-[10px] text-muted-foreground">
                           {comment.createdAt?.toDate ? comment.createdAt.toDate().toLocaleString() : 'Just now'}
                         </span>
                       </div>
-                      <p className="text-sm">{comment.content}</p>
-                      <div className="flex items-center gap-2 pt-2">
+                      <p className="text-sm line-clamp-3">{comment.content}</p>
+                      <div className="flex flex-wrap items-center gap-2 pt-2">
                         {comment.status !== 'approved' && (
-                          <Button size="sm" variant="outline" className="h-8" onClick={() => handleCommentStatus(comment.id, 'approved')}>
+                          <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => handleCommentStatus(comment.id, 'approved')}>
                             <Check className="h-3 w-3 mr-1" /> Approve
                           </Button>
                         )}
                         {comment.status !== 'spam' && (
-                          <Button size="sm" variant="outline" className="h-8 text-destructive" onClick={() => handleCommentStatus(comment.id, 'spam')}>
+                          <Button size="sm" variant="outline" className="h-8 text-xs text-destructive" onClick={() => handleCommentStatus(comment.id, 'spam')}>
                             <X className="h-3 w-3 mr-1" /> Spam
                           </Button>
                         )}
-                        <Button size="sm" variant="ghost" className="h-8 text-destructive" onClick={() => handleCommentDelete(comment.id)}>
+                        <Button size="sm" variant="ghost" className="h-8 text-xs text-destructive" onClick={() => handleCommentDelete(comment.id)}>
                           <Trash2 className="h-3 w-3 mr-1" /> Delete
                         </Button>
                       </div>
@@ -1051,8 +1150,8 @@ function AdminDashboardContent({ onNavigate }: AdminDashboardProps) {
                 {subscribersLoading ? (
                   <p>Loading subscribers...</p>
                 ) : subscribers.length > 0 ? (
-                  <div className="border rounded-lg overflow-hidden">
-                    <table className="w-full text-sm">
+                  <div className="border rounded-lg overflow-x-auto">
+                    <table className="w-full text-sm min-w-[400px]">
                       <thead className="bg-muted">
                         <tr>
                           <th className="px-4 py-2 text-left">Email</th>
@@ -1126,8 +1225,8 @@ function AdminDashboardContent({ onNavigate }: AdminDashboardProps) {
               {subscriptions.length > 0 && (
                 <div className="space-y-4">
                   <h3 className="text-lg font-semibold">Recent Subscriptions</h3>
-                  <div className="border rounded-lg overflow-hidden">
-                    <table className="w-full text-sm">
+                  <div className="border rounded-lg overflow-x-auto">
+                    <table className="w-full text-sm min-w-[500px]">
                       <thead className="bg-muted">
                         <tr>
                           <th className="px-4 py-2 text-left">User ID</th>
@@ -1209,42 +1308,56 @@ function AdminDashboardContent({ onNavigate }: AdminDashboardProps) {
             <CardContent>
               <div className="space-y-4">
                 {usersLoading ? (
-                  <p>Loading users...</p>
+                  <p className="text-center py-4">Loading users...</p>
                 ) : users.length > 0 ? (
-                  <div className="border rounded-lg overflow-hidden">
-                    <table className="w-full text-sm">
-                      <thead className="bg-muted">
+                  <div className="border rounded-xl overflow-hidden overflow-x-auto">
+                    <table className="w-full text-sm min-w-[600px]">
+                      <thead className="bg-muted/50">
                         <tr>
-                          <th className="px-4 py-2 text-left">User</th>
-                          <th className="px-4 py-2 text-left">Role</th>
-                          <th className="px-4 py-2 text-left">Badges</th>
-                          <th className="px-4 py-2 text-left">Points</th>
-                          <th className="px-4 py-2 text-right">Actions</th>
+                          <th className="px-4 py-3 text-left font-semibold">User</th>
+                          <th className="px-4 py-3 text-left font-semibold">Role</th>
+                          <th className="px-4 py-3 text-left font-semibold">Badges</th>
+                          <th className="px-4 py-3 text-left font-semibold">Points</th>
+                          <th className="px-4 py-3 text-right font-semibold">Actions</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y">
                         {users.map((u) => (
-                          <tr key={u.uid}>
-                            <td className="px-4 py-2">
-                              <div className="flex items-center gap-2">
-                                <Avatar className="h-8 w-8">
+                          <tr key={u.uid} className="hover:bg-muted/30 transition-colors">
+                            <td className="px-4 py-3">
+                              <div className="flex items-center gap-3">
+                                <Avatar className="h-9 w-9 border-2 border-background shadow-sm">
                                   <AvatarImage src={u.photoURL} />
-                                  <AvatarFallback>{u.displayName?.charAt(0)}</AvatarFallback>
+                                  <AvatarFallback className="bg-primary/5 text-primary font-bold">{u.displayName?.charAt(0)}</AvatarFallback>
                                 </Avatar>
-                                <span>{u.displayName}</span>
+                                <div className="flex flex-col">
+                                  <div className="flex items-center gap-1">
+                                    <span className="font-medium">{u.displayName}</span>
+                                    {u.isVerified && (
+                                      <CheckCircle className="h-3 w-3 text-blue-500 fill-blue-500/10" />
+                                    )}
+                                  </div>
+                                  <span className="text-[10px] text-muted-foreground truncate max-w-[120px]">{u.uid}</span>
+                                </div>
                               </div>
                             </td>
-                            <td className="px-4 py-2 capitalize">{u.role}</td>
-                            <td className="px-4 py-2">
+                            <td className="px-4 py-3">
+                              <Badge variant="secondary" className="capitalize font-medium text-[10px] px-2 py-0">
+                                {u.role}
+                              </Badge>
+                            </td>
+                            <td className="px-4 py-3">
                               <div className="flex flex-wrap gap-1">
                                 {u.badges?.map(b => (
-                                  <Badge key={b} variant="outline" className="text-[10px] px-1">{b}</Badge>
+                                  <Badge key={b} variant="outline" className="text-[10px] px-1.5 py-0 bg-background">{b}</Badge>
                                 ))}
                               </div>
                             </td>
-                            <td className="px-4 py-2">{u.points || 0}</td>
-                            <td className="px-4 py-2 text-right">
-                              <Button variant="ghost" size="sm" onClick={() => handleOpenUserDialog(u)}>
+                            <td className="px-4 py-3">
+                              <span className="font-bold text-primary">{u.points || 0}</span>
+                            </td>
+                            <td className="px-4 py-3 text-right">
+                              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleOpenUserDialog(u)}>
                                 <Edit className="h-4 w-4" />
                               </Button>
                             </td>
@@ -1735,6 +1848,30 @@ function AdminDashboardContent({ onNavigate }: AdminDashboardProps) {
                       <Label htmlFor="adInPost">In-Post Ad (HTML/Script)</Label>
                       <Textarea id="adInPost" value={adInPost} onChange={(e) => setAdInPost(e.target.value)} placeholder="Paste ad code here" />
                     </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="adParagraphInterval">Paragraph Interval</Label>
+                        <Input 
+                          id="adParagraphInterval" 
+                          type="number" 
+                          value={adParagraphInterval} 
+                          onChange={(e) => setAdParagraphInterval(parseInt(e.target.value))} 
+                          min={1}
+                        />
+                        <p className="text-xs text-muted-foreground">Show ad after every X paragraphs.</p>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="adMaxCount">Max Ads per Post</Label>
+                        <Input 
+                          id="adMaxCount" 
+                          type="number" 
+                          value={adMaxCount} 
+                          onChange={(e) => setAdMaxCount(parseInt(e.target.value))} 
+                          min={1}
+                        />
+                        <p className="text-xs text-muted-foreground">Maximum number of ads to show in a single post.</p>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
@@ -2147,6 +2284,18 @@ function AdminDashboardContent({ onNavigate }: AdminDashboardProps) {
                 value={userBadges.join(', ')} 
                 onChange={(e) => setUserBadges(e.target.value.split(',').map(b => b.trim()).filter(b => b !== ''))} 
                 placeholder="Verified, Top Author, Pro"
+              />
+            </div>
+            <div className="flex items-center justify-between p-4 border rounded-lg bg-muted/30">
+              <div className="space-y-0.5">
+                <Label className="text-base">Verified Account</Label>
+                <p className="text-sm text-muted-foreground">Display a verification badge next to the user's name.</p>
+              </div>
+              <input 
+                type="checkbox" 
+                checked={isUserVerified} 
+                onChange={(e) => setIsUserVerified(e.target.checked)}
+                className="h-5 w-5 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer" 
               />
             </div>
             <DialogFooter>
