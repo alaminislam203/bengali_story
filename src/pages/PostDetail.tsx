@@ -24,6 +24,7 @@ import AITextToSpeech from '../components/AITextToSpeech';
 import { Helmet } from 'react-helmet-async';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
+import { motion } from 'motion/react';
 
 interface PostDetailProps {
   slug: string;
@@ -211,7 +212,12 @@ export default function PostDetail({ slug, onNavigate }: PostDetailProps) {
   const authorBadge = getBadgeByPoints(authorProfile?.points || 0);
 
   return (
-    <article className="max-w-3xl mx-auto space-y-8">
+    <motion.article 
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5 }}
+      className="max-w-3xl mx-auto space-y-8"
+    >
       {/* Reading Progress Bar */}
       <div className="fixed top-0 left-0 w-full h-1 z-[100] bg-muted/30">
         <div 
@@ -417,6 +423,6 @@ export default function PostDetail({ slug, onNavigate }: PostDetailProps) {
 
         <CommentSection postId={post.id} />
       </footer>
-    </article>
+    </motion.article>
   );
 }

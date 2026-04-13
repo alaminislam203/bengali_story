@@ -9,6 +9,28 @@ import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Helmet } from 'react-helmet-async';
 import LazyImage from '../components/LazyImage';
+import { motion } from 'motion/react';
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.05
+    }
+  }
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, scale: 0.95 },
+  visible: {
+    opacity: 1,
+    scale: 1,
+    transition: {
+      duration: 0.4
+    }
+  }
+};
 
 interface BlogProps {
   onNavigate: (page: string, slug?: string) => void;
@@ -90,7 +112,12 @@ export default function Blog({ onNavigate }: BlogProps) {
         ))}
       </div>
 
-      <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
+      <motion.div 
+        initial="hidden"
+        animate="visible"
+        variants={containerVariants}
+        className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3"
+      >
         {loading ? (
           Array(6).fill(0).map((_, i) => (
             <Card key={i} className="overflow-hidden">
@@ -109,67 +136,69 @@ export default function Blog({ onNavigate }: BlogProps) {
           filteredPosts.map((post) => {
             const authorBadge = getBadgeByPoints(post.authorPoints || 0);
             return (
-              <Card key={post.id} className="group overflow-hidden hover:shadow-lg transition-shadow flex flex-col">
-                {post.featuredImage && (
-                  <LazyImage 
-                    src={post.featuredImage} 
-                    alt={post.title}
-                    containerClassName="aspect-video"
-                    className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-300"
-                    referrerPolicy="no-referrer"
-                  />
-                )}
-                <CardHeader className="flex-1">
-                  <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground mb-2">
-                    <span>{formatDate(post.createdAt?.toDate())}</span>
-                    <span>•</span>
-                    <div className="flex items-center gap-1">
-                      <span 
-                        className="font-medium text-foreground hover:text-primary cursor-pointer transition-colors"
-                        onClick={() => onNavigate('author', post.authorId)}
-                      >
-                        {post.authorName}
-                      </span>
-                      <div className="flex gap-1">
-                        <Badge className={cn("text-[9px] px-1 py-0 h-3.5 border-none text-white", authorBadge.color)}>
-                          {authorBadge.name}
-                        </Badge>
-                        {post.authorBadges && post.authorBadges.length > 0 && (
-                          <div className="flex gap-1">
-                            {post.authorBadges.slice(0, 1).map(badge => (
-                              <Badge key={badge} variant="secondary" className="text-[9px] px-1 py-0 h-3.5 bg-primary/5 text-primary border-primary/10">
-                                {badge}
-                              </Badge>
-                            ))}
-                          </div>
-                        )}
+              <motion.div key={post.id} variants={itemVariants}>
+                <Card className="group overflow-hidden hover:shadow-lg transition-shadow h-full flex flex-col">
+                  {post.featuredImage && (
+                    <LazyImage 
+                      src={post.featuredImage} 
+                      alt={post.title}
+                      containerClassName="aspect-video"
+                      className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-300"
+                      referrerPolicy="no-referrer"
+                    />
+                  )}
+                  <CardHeader className="flex-1">
+                    <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground mb-2">
+                      <span>{formatDate(post.createdAt?.toDate())}</span>
+                      <span>•</span>
+                      <div className="flex items-center gap-1">
+                        <span 
+                          className="font-medium text-foreground hover:text-primary cursor-pointer transition-colors"
+                          onClick={() => onNavigate('author', post.authorId)}
+                        >
+                          {post.authorName}
+                        </span>
+                        <div className="flex gap-1">
+                          <Badge className={cn("text-[9px] px-1 py-0 h-3.5 border-none text-white", authorBadge.color)}>
+                            {authorBadge.name}
+                          </Badge>
+                          {post.authorBadges && post.authorBadges.length > 0 && (
+                            <div className="flex gap-1">
+                              {post.authorBadges.slice(0, 1).map(badge => (
+                                <Badge key={badge} variant="secondary" className="text-[9px] px-1 py-0 h-3.5 bg-primary/5 text-primary border-primary/10">
+                                  {badge}
+                                </Badge>
+                              ))}
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                  <CardTitle className="line-clamp-2 group-hover:text-primary transition-colors cursor-pointer" onClick={() => onNavigate('post', post.slug)}>
-                    {post.title}
-                  </CardTitle>
-                  {post.categoryId && (
-                    <Badge variant="secondary" className="font-normal w-fit mt-2">
-                      {categories.find(c => c.id === post.categoryId)?.name || 'Uncategorized'}
-                    </Badge>
-                  )}
-                </CardHeader>
-                <CardContent>
-                  <p className="text-muted-foreground line-clamp-3 text-sm">
-                    {post.excerpt}
-                  </p>
-                </CardContent>
-                <CardFooter className="pt-0">
-                  <Button 
-                    variant="link" 
-                    className="p-0 h-auto font-semibold"
-                    onClick={() => onNavigate('post', post.slug)}
-                  >
-                    Read More <ArrowRight className="ml-2 h-4 w-4" />
-                  </Button>
-                </CardFooter>
-              </Card>
+                    <CardTitle className="line-clamp-2 group-hover:text-primary transition-colors cursor-pointer" onClick={() => onNavigate('post', post.slug)}>
+                      {post.title}
+                    </CardTitle>
+                    {post.categoryId && (
+                      <Badge variant="secondary" className="font-normal w-fit mt-2">
+                        {categories.find(c => c.id === post.categoryId)?.name || 'Uncategorized'}
+                      </Badge>
+                    )}
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-muted-foreground line-clamp-3 text-sm">
+                      {post.excerpt}
+                    </p>
+                  </CardContent>
+                  <CardFooter className="pt-0">
+                    <Button 
+                      variant="link" 
+                      className="p-0 h-auto font-semibold"
+                      onClick={() => onNavigate('post', post.slug)}
+                    >
+                      Read More <ArrowRight className="ml-2 h-4 w-4" />
+                    </Button>
+                  </CardFooter>
+                </Card>
+              </motion.div>
             );
           })
         ) : (
@@ -178,7 +207,7 @@ export default function Blog({ onNavigate }: BlogProps) {
             <p className="text-muted-foreground mt-2">We haven't published any posts yet. Check back soon!</p>
           </div>
         )}
-      </div>
+      </motion.div>
     </div>
   );
 }

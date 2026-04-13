@@ -69,7 +69,7 @@ export default function AdminDashboard({ onNavigate }: AdminDashboardProps) {
 }
 
 function AdminDashboardContent({ onNavigate }: AdminDashboardProps) {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const editor = useRef(null);
   const { posts, loading } = usePosts();
   const { settings, loading: settingsLoading } = useSettings();
@@ -357,15 +357,11 @@ function AdminDashboardContent({ onNavigate }: AdminDashboardProps) {
       status,
       categoryId,
       tags: postTags,
-      authorId: user.uid,
-      authorName: user.displayName || 'Anonymous',
       updatedAt: serverTimestamp(),
     };
 
     if (scheduledAt) {
       postData.scheduledAt = new Date(scheduledAt);
-      // If scheduled, status should be 'pending' or a new 'scheduled' status
-      // For now we'll use 'pending' and let a future process publish it
       if (status === 'published') {
         postData.status = 'pending';
       }
@@ -373,15 +369,64 @@ function AdminDashboardContent({ onNavigate }: AdminDashboardProps) {
 
     try {
       if (editingPost) {
-        await updateDoc(doc(db, 'posts', editingPost.id), postData);
+        // Preserve original author if admin is editing
+        const updatedPostData = { ...postData };
+        
+        // Check if status is changing to published to award points
+        if (editingPost.status !== 'published' && status === 'published') {
+          const authorRef = doc(db, 'public_profiles', editingPost.authorId);
+          const authorDoc = await getDoc(authorRef);
+          if (authorDoc.exists()) {
+            const currentPoints = authorDoc.data().points || 0;
+            await updateDoc(authorRef, {
+              points: currentPoints + 10, // Award 10 points for a published post
+              updatedAt: serverTimestamp()
+            });
+            
+            // Also update the private user doc
+            await updateDoc(doc(db, 'users', editingPost.authorId), {
+              points: currentPoints + 10,
+              updatedAt: serverTimestamp()
+            });
+          }
+          updatedPostData.publishedAt = serverTimestamp();
+        }
+
+        await updateDoc(doc(db, 'posts', editingPost.id), updatedPostData);
         toast.success("Post updated successfully!");
       } else {
-        await addDoc(collection(db, 'posts'), {
+        // New post
+        const newPostData = {
           ...postData,
+          authorId: user.uid,
+          authorName: profile?.displayName || user.displayName || 'Anonymous',
+          authorPoints: profile?.points || 0,
+          authorBadges: profile?.badges || [],
           createdAt: serverTimestamp(),
           viewCount: 0,
           likeCount: 0,
-        });
+        };
+
+        if (status === 'published') {
+          newPostData.publishedAt = serverTimestamp();
+          
+          // Award points for self-published admin posts too
+          const authorRef = doc(db, 'public_profiles', user.uid);
+          const authorDoc = await getDoc(authorRef);
+          if (authorDoc.exists()) {
+            const currentPoints = authorDoc.data().points || 0;
+            await updateDoc(authorRef, {
+              points: currentPoints + 10,
+              updatedAt: serverTimestamp()
+            });
+            await updateDoc(doc(db, 'users', user.uid), {
+              points: currentPoints + 10,
+              updatedAt: serverTimestamp()
+            });
+          }
+        }
+
+        await addDoc(collection(db, 'posts'), newPostData);
         toast.success("Post created successfully!");
         clearDraft();
       }
@@ -751,12 +796,30 @@ function AdminDashboardContent({ onNavigate }: AdminDashboardProps) {
               <CardDescription>A list of all your blog posts and their current status.</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
+              <motion.div 
+                initial="hidden"
+                animate="visible"
+                variants={{
+                  hidden: { opacity: 0 },
+                  visible: {
+                    opacity: 1,
+                    transition: { staggerChildren: 0.05 }
+                  }
+                }}
+                className="space-y-4"
+              >
                 {loading ? (
                   <p>Loading posts...</p>
                 ) : posts.length > 0 ? (
                   posts.map((post) => (
-                    <div key={post.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors">
+                    <motion.div 
+                      key={post.id} 
+                      variants={{
+                        hidden: { opacity: 0, x: -10 },
+                        visible: { opacity: 1, x: 0 }
+                      }}
+                      className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
+                    >
                       <div className="space-y-1">
                         <div className="flex items-center gap-2">
                           <h3 className="font-semibold">{post.title}</h3>
@@ -800,12 +863,12 @@ function AdminDashboardContent({ onNavigate }: AdminDashboardProps) {
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
-                    </div>
+                    </motion.div>
                   ))
                 ) : (
                   <p className="text-center py-8 text-muted-foreground">No posts yet. Create your first one!</p>
                 )}
-              </div>
+              </motion.div>
             </CardContent>
           </Card>
         </TabsContent>

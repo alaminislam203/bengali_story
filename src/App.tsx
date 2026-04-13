@@ -2,6 +2,7 @@ import { useState, ReactNode, useEffect } from 'react';
 import { AuthProvider } from './lib/auth-context';
 import { Toaster } from '@/components/ui/sonner';
 import Navbar from './components/Navbar';
+import AdSpace from './components/AdSpace';
 import ScrollToTop from './components/ScrollToTop';
 import AntiAdBlock from './components/AntiAdBlock';
 import Home from './pages/Home';
@@ -18,6 +19,7 @@ import { Activity } from 'lucide-react';
 import './lib/i18n';
 import { requestNotificationPermission, onMessageListener } from './lib/notifications';
 import AISecurityGuard from './components/AISecurityGuard';
+import { motion, AnimatePresence } from 'motion/react';
 
 import { toast } from 'sonner';
 
@@ -105,20 +107,31 @@ function AppContent() {
   return (
     <div className="min-h-screen bg-background text-foreground font-sans antialiased">
       <Navbar onNavigate={navigate} currentPage={currentPage} />
-      <main className="container mx-auto px-4 py-8">
-        {currentPage === 'home' && <Home onNavigate={navigate} />}
-        {currentPage === 'blog' && <Blog onNavigate={navigate} />}
-        {currentPage === 'post' && selectedPostSlug && (
-          <PostDetail slug={selectedPostSlug} onNavigate={navigate} />
-        )}
-        {currentPage === 'author' && selectedAuthorId && (
-          <AuthorProfile authorId={selectedAuthorId} onNavigate={navigate} />
-        )}
-        {currentPage === 'admin' && <AdminDashboard onNavigate={navigate} />}
-        {currentPage === 'profile' && <Profile />}
-        {currentPage === 'static' && selectedPostSlug && (
-          <StaticPage slug={selectedPostSlug} />
-        )}
+      <AdSpace slot="adHeader" className="container mx-auto px-4 py-4 flex justify-center" />
+      <main className="container mx-auto px-4 py-8 overflow-hidden">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={currentPage + (selectedPostSlug || '') + (selectedAuthorId || '')}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.3, ease: "easeInOut" }}
+          >
+            {currentPage === 'home' && <Home onNavigate={navigate} />}
+            {currentPage === 'blog' && <Blog onNavigate={navigate} />}
+            {currentPage === 'post' && selectedPostSlug && (
+              <PostDetail slug={selectedPostSlug} onNavigate={navigate} />
+            )}
+            {currentPage === 'author' && selectedAuthorId && (
+              <AuthorProfile authorId={selectedAuthorId} onNavigate={navigate} />
+            )}
+            {currentPage === 'admin' && <AdminDashboard onNavigate={navigate} />}
+            {currentPage === 'profile' && <Profile onNavigate={navigate} />}
+            {currentPage === 'static' && selectedPostSlug && (
+              <StaticPage slug={selectedPostSlug} />
+            )}
+          </motion.div>
+        </AnimatePresence>
       </main>
       <ScrollToTop />
       <AntiAdBlock />
