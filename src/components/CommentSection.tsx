@@ -51,6 +51,16 @@ export default function CommentSection({ postId }: CommentSectionProps) {
       const moderation = await moderateContent(content);
       
       if (!moderation.safe) {
+        // Log blocked attempt
+        await addDoc(collection(db, 'security_logs'), {
+          type: 'threat_blocked',
+          content: content.substring(0, 100).trim() + (content.length > 100 ? '...' : ''),
+          authorName,
+          reason: moderation.reason,
+          category: moderation.category,
+          createdAt: serverTimestamp()
+        });
+
         toast.error(`AI Guard: ${moderation.reason || 'Content flagged as unsafe.'}`, {
           icon: <ShieldAlert className="h-4 w-4 text-destructive" />,
           duration: 5000
@@ -73,6 +83,15 @@ export default function CommentSection({ postId }: CommentSectionProps) {
         likedBy: [],
         aiVerified: true,
         aiConfidence: moderation.confidence
+      });
+
+      // Log successful moderation
+      await addDoc(collection(db, 'security_logs'), {
+        type: 'comment_approved',
+        content: content.substring(0, 100).trim() + (content.length > 100 ? '...' : ''),
+        authorName,
+        confidence: moderation.confidence,
+        createdAt: serverTimestamp()
       });
       
       if (parentId) {

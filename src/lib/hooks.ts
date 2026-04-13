@@ -468,6 +468,46 @@ export interface PushSubscription {
   createdAt: any;
 }
 
+export interface SecurityLog {
+  id: string;
+  type: 'threat_blocked' | 'comment_approved' | 'post_verified';
+  content: string;
+  authorName: string;
+  reason?: string;
+  category?: string;
+  confidence?: string;
+  createdAt: any;
+}
+
+export function useSecurityLogs(limitCount: number = 20) {
+  const [logs, setLogs] = useState<SecurityLog[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const q = query(
+      collection(db, 'security_logs'),
+      orderBy('createdAt', 'desc'),
+      limit(limitCount)
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const logsData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as SecurityLog[];
+      setLogs(logsData);
+      setLoading(false);
+    }, (error) => {
+      console.error("Error fetching security logs:", error);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [limitCount]);
+
+  return { logs, loading };
+}
+
 export function usePushSubscriptions() {
   const [subscriptions, setSubscriptions] = useState<PushSubscription[]>([]);
   const [loading, setLoading] = useState(true);

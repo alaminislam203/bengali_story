@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../lib/auth-context';
-import { usePosts, Post, useSettings, Setting, usePages, Page, useSubscribers, useAllComments, useCategories, useTags, Category, Tag, useMessages, Message, useAllUsers, PublicProfile, useNewsletterTemplates, NewsletterTemplate, usePushSubscriptions } from '../lib/hooks';
+import { usePosts, Post, useSettings, Setting, usePages, Page, useSubscribers, useAllComments, useCategories, useTags, Category, Tag, useMessages, Message, useAllUsers, PublicProfile, useNewsletterTemplates, NewsletterTemplate, usePushSubscriptions, useSecurityLogs, SecurityLog } from '../lib/hooks';
 import { db } from '../lib/firebase';
 import { 
   collection, 
@@ -82,6 +82,7 @@ function AdminDashboardContent({ onNavigate }: AdminDashboardProps) {
   const { users, loading: usersLoading } = useAllUsers();
   const { templates, loading: templatesLoading } = useNewsletterTemplates();
   const { subscriptions, loading: subscriptionsLoading } = usePushSubscriptions();
+  const { logs: securityLogs, loading: securityLoading } = useSecurityLogs(50);
   
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingPost, setEditingPost] = useState<Post | null>(null);
@@ -1367,8 +1368,10 @@ function AdminDashboardContent({ onNavigate }: AdminDashboardProps) {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">0</div>
-                <p className="text-xs text-muted-foreground mt-1">No threats detected today</p>
+                <div className="text-2xl font-bold">
+                  {securityLogs.filter(l => l.type === 'threat_blocked').length}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">Total threats detected</p>
               </CardContent>
             </Card>
             <Card>
@@ -1379,8 +1382,12 @@ function AdminDashboardContent({ onNavigate }: AdminDashboardProps) {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">100%</div>
-                <p className="text-xs text-muted-foreground mt-1">Content verified by Gemini</p>
+                <div className="text-2xl font-bold">
+                  {securityLogs.length > 0 
+                    ? Math.round((securityLogs.filter(l => l.type !== 'threat_blocked').length / securityLogs.length) * 100) 
+                    : 100}%
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">Content safety ratio</p>
               </CardContent>
             </Card>
           </div>
@@ -1388,31 +1395,50 @@ function AdminDashboardContent({ onNavigate }: AdminDashboardProps) {
           <Card>
             <CardHeader>
               <CardTitle>AI Security Logs</CardTitle>
-              <CardDescription>Recent activity from the AI Security Guard.</CardDescription>
+              <CardDescription>Real-time activity from the AI Security Guard.</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                <div className="flex items-start gap-4 p-4 border rounded-lg bg-muted/30">
-                  <div className="bg-green-500/10 p-2 rounded-full">
-                    <ShieldCheck className="h-4 w-4 text-green-500" />
-                  </div>
-                  <div className="flex-1 space-y-1">
-                    <p className="text-sm font-medium">System Initialization</p>
-                    <p className="text-xs text-muted-foreground">AI Security Guard successfully deployed and connected to Gemini API.</p>
-                    <p className="text-[10px] text-muted-foreground mt-2">Just now</p>
-                  </div>
-                </div>
-                
-                <div className="flex items-start gap-4 p-4 border rounded-lg bg-muted/30">
-                  <div className="bg-blue-500/10 p-2 rounded-full">
-                    <Info className="h-4 w-4 text-blue-500" />
-                  </div>
-                  <div className="flex-1 space-y-1">
-                    <p className="text-sm font-medium">Auto-Moderation Enabled</p>
-                    <p className="text-xs text-muted-foreground">All new comments are now being scanned for safety violations.</p>
-                    <p className="text-[10px] text-muted-foreground mt-2">5 minutes ago</p>
-                  </div>
-                </div>
+                {securityLoading ? (
+                  <p className="text-center py-4">Loading logs...</p>
+                ) : securityLogs.length > 0 ? (
+                  securityLogs.map((log) => (
+                    <div key={log.id} className={cn(
+                      "flex items-start gap-4 p-4 border rounded-lg",
+                      log.type === 'threat_blocked' ? "bg-destructive/5 border-destructive/20" : "bg-muted/30"
+                    )}>
+                      <div className={cn(
+                        "p-2 rounded-full",
+                        log.type === 'threat_blocked' ? "bg-destructive/10" : "bg-green-500/10"
+                      )}>
+                        {log.type === 'threat_blocked' ? (
+                          <ShieldAlert className="h-4 w-4 text-destructive" />
+                        ) : (
+                          <ShieldCheck className="h-4 w-4 text-green-500" />
+                        )}
+                      </div>
+                      <div className="flex-1 space-y-1">
+                        <div className="flex items-center justify-between">
+                          <p className="text-sm font-medium">
+                            {log.type === 'threat_blocked' ? 'Threat Blocked' : 'Content Verified'}
+                          </p>
+                          <span className="text-xs text-muted-foreground">
+                            {formatDate(log.createdAt?.toDate())}
+                          </span>
+                        </div>
+                        <p className="text-xs text-muted-foreground italic">"{log.content}"</p>
+                        <p className="text-xs">
+                          <span className="font-semibold">Author:</span> {log.authorName}
+                          {log.reason && (
+                            <> • <span className="font-semibold text-destructive">Reason:</span> {log.reason}</>
+                          )}
+                        </p>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-center py-8 text-muted-foreground">No security logs recorded yet.</p>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -1428,7 +1454,7 @@ function AdminDashboardContent({ onNavigate }: AdminDashboardProps) {
                   <Label className="text-base">Strict Moderation</Label>
                   <p className="text-sm text-muted-foreground">Automatically block comments with low confidence scores.</p>
                 </div>
-                <input type="checkbox" checked className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary" />
+                <input type="checkbox" checked readOnly className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary" />
               </div>
               
               <div className="flex items-center justify-between p-4 border rounded-lg">
@@ -1436,7 +1462,7 @@ function AdminDashboardContent({ onNavigate }: AdminDashboardProps) {
                   <Label className="text-base">PII Protection</Label>
                   <p className="text-sm text-muted-foreground">Prevent users from posting phone numbers or emails.</p>
                 </div>
-                <input type="checkbox" checked className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary" />
+                <input type="checkbox" checked readOnly className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary" />
               </div>
 
               <div className="flex items-center justify-between p-4 border rounded-lg">
@@ -1444,7 +1470,7 @@ function AdminDashboardContent({ onNavigate }: AdminDashboardProps) {
                   <Label className="text-base">Spam Filter</Label>
                   <p className="text-sm text-muted-foreground">Use AI to detect and block repetitive or marketing spam.</p>
                 </div>
-                <input type="checkbox" checked className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary" />
+                <input type="checkbox" checked readOnly className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary" />
               </div>
             </CardContent>
           </Card>

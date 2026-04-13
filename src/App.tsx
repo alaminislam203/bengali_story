@@ -127,9 +127,9 @@ function AppContent() {
         <div className="container mx-auto px-4">
           <div className="flex flex-col md:flex-row justify-between items-center gap-6">
             <div className="text-center md:text-left">
-              <h2 className="text-xl font-bold text-primary mb-2">{settings?.siteName || 'কুড়ানোগল্প.পাতা.বাংলা'}</h2>
+              <h2 className="text-xl font-bold text-primary mb-2">{settings?.siteName || 'গল্পগ্রাম'}</h2>
               <p className="text-sm text-muted-foreground max-w-xs">
-                {settings?.siteDescription || 'A minimal blog platform built for speed and clarity.'}
+                {settings?.siteDescription || 'গল্পগ্রাম - আপনার প্রিয় গল্পের ঠিকানা।'}
               </p>
             </div>
             

@@ -181,5 +181,11 @@ service cloud.firestore {
       allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
       allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
     }
+
+    match /security_logs/{logId} {
+      allow read: if isAdmin();
+      allow create: if true; // Allow AI Guard to log from client
+      allow update, delete: if isAdmin();
+    }
   }
 }

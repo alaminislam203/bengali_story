@@ -1,5 +1,5 @@
 {
-  "name": "QalbeTalks Blog",
-  "description": "A modern, full-stack blog platform built with React, Tailwind CSS, and Firebase. Features include admin dashboard, markdown support, and real-time updates.",
+  "name": "গল্পগ্রাম",
+  "description": "গল্পগ্রাম - একটি আধুনিক বাংলা ব্লগ প্ল্যাটফর্ম।",
   "requestFramePermissions": []
 }

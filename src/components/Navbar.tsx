@@ -81,9 +81,9 @@ export default function Navbar({ onNavigate, currentPage }: NavbarProps) {
               className="flex items-center gap-2 text-2xl font-bold tracking-tighter hover:opacity-80 transition-opacity"
             >
               {settings?.logoUrl ? (
-                <img src={settings.logoUrl} alt={settings.siteName || 'কুড়ানোগল্প.পাতা.বাংলা'} className="h-8 w-auto object-contain" referrerPolicy="no-referrer" />
+                <img src={settings.logoUrl} alt={settings.siteName || 'গল্পগ্রাম'} className="h-8 w-auto object-contain" referrerPolicy="no-referrer" />
               ) : (
-                settings?.siteName || 'কুড়ানোগল্প.পাতা.বাংলা'
+                settings?.siteName || 'গল্পগ্রাম'
               )}
             </button>
           </div>

@@ -59,17 +59,50 @@ export default function Home({ onNavigate }: HomeProps) {
       )}
 
       {/* Hero Section */}
-      <section className="py-12 md:py-24 lg:py-32 flex flex-col items-center text-center space-y-6">
-        <AdSpace slot="adHeader" className="w-full max-w-4xl mb-8 flex justify-center" />
-        <h1 className="text-4xl font-extrabold tracking-tighter sm:text-5xl md:text-6xl lg:text-7xl">
-          {settings?.siteName || 'Insights for the'} <span className="text-primary">{settings?.siteName ? '' : 'Modern Mind'}</span>
-        </h1>
-        <p className="max-w-[700px] text-muted-foreground md:text-xl">
-          {settings?.siteDescription || 'Explore the latest in technology, design, and culture. A minimal blog platform built for speed and clarity.'}
-        </p>
-        <div className="flex gap-4">
-          <Button size="lg" onClick={() => onNavigate('blog')}>Read the Blog</Button>
-          <Button size="lg" variant="outline">Learn More</Button>
+      <section className="relative py-20 md:py-32 overflow-hidden rounded-3xl bg-gradient-to-br from-primary/10 via-background to-primary/5 border border-primary/10">
+        <div className="absolute inset-0 bg-grid-slate-200 [mask-image:linear-gradient(0deg,white,rgba(255,255,255,0.6))] dark:bg-grid-slate-800/25 dark:[mask-image:linear-gradient(0deg,rgba(255,255,255,0.1),rgba(255,255,255,0.5))]" style={{ backgroundPosition: 'center' }}></div>
+        <div className="relative container mx-auto px-4 flex flex-col items-center text-center space-y-8">
+          <AdSpace slot="adHeader" className="w-full max-w-4xl mb-4 flex justify-center" />
+          
+          <div className="space-y-4 max-w-4xl">
+            <Badge variant="outline" className="px-4 py-1 border-primary/30 text-primary bg-primary/5 animate-in fade-in zoom-in duration-700">
+              ✨ আপনার প্রিয় গল্পের ঠিকানা
+            </Badge>
+            <h1 className="text-5xl font-extrabold tracking-tight sm:text-6xl md:text-7xl lg:text-8xl bg-clip-text text-transparent bg-gradient-to-r from-primary via-primary/80 to-primary/60">
+              {settings?.siteName || 'গল্পগ্রাম'}
+            </h1>
+            <p className="max-w-[800px] mx-auto text-muted-foreground text-lg md:text-2xl leading-relaxed animate-in fade-in slide-in-from-bottom-4 duration-1000">
+              {settings?.siteDescription || 'গল্পগ্রাম - একটি আধুনিক বাংলা ব্লগ প্ল্যাটফর্ম। যেখানে প্রতিটি শব্দের মাঝে লুকিয়ে থাকে একটি নতুন গল্প।'}
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-center gap-4 pt-4">
+            <Button size="lg" className="h-14 px-8 text-lg rounded-full shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 transition-all" onClick={() => onNavigate('blog')}>
+              গল্পগুলো পড়ুন <ArrowRight className="ml-2 h-5 w-5" />
+            </Button>
+            <Button size="lg" variant="outline" className="h-14 px-8 text-lg rounded-full border-primary/20 hover:bg-primary/5 transition-all" onClick={() => onNavigate('static', 'about')}>
+              আমাদের সম্পর্কে
+            </Button>
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 pt-12 w-full max-w-3xl">
+            <div className="flex flex-col items-center space-y-1">
+              <span className="text-2xl font-bold text-primary">{posts.length}+</span>
+              <span className="text-xs text-muted-foreground uppercase tracking-widest">গল্প</span>
+            </div>
+            <div className="flex flex-col items-center space-y-1">
+              <span className="text-2xl font-bold text-primary">১০০%</span>
+              <span className="text-xs text-muted-foreground uppercase tracking-widest">নিরাপদ</span>
+            </div>
+            <div className="flex flex-col items-center space-y-1">
+              <span className="text-2xl font-bold text-primary">AI</span>
+              <span className="text-xs text-muted-foreground uppercase tracking-widest">প্রহরী</span>
+            </div>
+            <div className="flex flex-col items-center space-y-1">
+              <span className="text-2xl font-bold text-primary">২৪/৭</span>
+              <span className="text-xs text-muted-foreground uppercase tracking-widest">সক্রিয়</span>
+            </div>
+          </div>
         </div>
       </section>
 
