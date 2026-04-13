@@ -25,21 +25,21 @@ export default function Home({ onNavigate }: HomeProps) {
   return (
     <div className="space-y-12">
       <Helmet>
-        <title>{settings?.siteName || 'কুড়ানোগল্প.পাতা.বাংলা'} | Home</title>
-        <meta name="description" content={settings?.siteDescription || 'Explore the latest insights in technology, design, and culture.'} />
+        <title>{settings?.siteName || 'গল্পগ্রাম'} | Home</title>
+        <meta name="description" content={settings?.siteDescription || 'গল্পগ্রাম - আপনার প্রিয় গল্পের ঠিকানা। একটি আধুনিক বাংলা ব্লগ প্ল্যাটফর্ম।'} />
         
         {/* Open Graph / Facebook */}
         <meta property="og:type" content="website" />
         <meta property="og:url" content={window.location.href} />
-        <meta property="og:title" content={settings?.siteName || 'কুড়ানোগল্প.পাতা.বাংলা'} />
-        <meta property="og:description" content={settings?.siteDescription || 'Explore the latest insights in technology, design, and culture.'} />
+        <meta property="og:title" content={settings?.siteName || 'গল্পগ্রাম'} />
+        <meta property="og:description" content={settings?.siteDescription || 'গল্পগ্রাম - আপনার প্রিয় গল্পের ঠিকানা। একটি আধুনিক বাংলা ব্লগ প্ল্যাটফর্ম।'} />
         <meta property="og:image" content={settings?.logoUrl || "https://picsum.photos/seed/blog/1200/630"} />
 
         {/* Twitter */}
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:url" content={window.location.href} />
-        <meta name="twitter:title" content={settings?.siteName || 'কুড়ানোগল্প.পাতা.বাংলা'} />
-        <meta name="twitter:description" content={settings?.siteDescription || 'Explore the latest insights in technology, design, and culture.'} />
+        <meta name="twitter:title" content={settings?.siteName || 'গল্পগ্রাম'} />
+        <meta name="twitter:description" content={settings?.siteDescription || 'গল্পগ্রাম - আপনার প্রিয় গল্পের ঠিকানা। একটি আধুনিক বাংলা ব্লগ প্ল্যাটফর্ম।'} />
         <meta name="twitter:image" content={settings?.logoUrl || "https://picsum.photos/seed/blog/1200/630"} />
       </Helmet>
 

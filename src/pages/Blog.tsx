@@ -33,20 +33,20 @@ export default function Blog({ onNavigate }: BlogProps) {
   return (
     <div className="space-y-12">
       <Helmet>
-        <title>Blog | {settings?.siteName || 'কুড়ানোগল্প.পাতা.বাংলা'}</title>
-        <meta name="description" content={settings?.siteDescription || 'Discover stories, thinking, and expertise.'} />
+        <title>Blog | {settings?.siteName || 'গল্পগ্রাম'}</title>
+        <meta name="description" content={settings?.siteDescription || 'গল্পগ্রাম - আপনার প্রিয় গল্পের ঠিকানা। একটি আধুনিক বাংলা ব্লগ প্ল্যাটফর্ম।'} />
         
         {/* Open Graph / Facebook */}
         <meta property="og:type" content="website" />
         <meta property="og:url" content={window.location.href} />
-        <meta property="og:title" content={`Blog | ${settings?.siteName || 'কুড়ানোগল্প.পাতা.বাংলা'}`} />
-        <meta property="og:description" content={settings?.siteDescription || 'Discover stories, thinking, and expertise.'} />
+        <meta property="og:title" content={`Blog | ${settings?.siteName || 'গল্পগ্রাম'}`} />
+        <meta property="og:description" content={settings?.siteDescription || 'গল্পগ্রাম - আপনার প্রিয় গল্পের ঠিকানা। একটি আধুনিক বাংলা ব্লগ প্ল্যাটফর্ম।'} />
 
         {/* Twitter */}
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:url" content={window.location.href} />
-        <meta name="twitter:title" content={`Blog | ${settings?.siteName || 'কুড়ানোগল্প.পাতা.বাংলা'}`} />
-        <meta name="twitter:description" content={settings?.siteDescription || 'Discover stories, thinking, and expertise.'} />
+        <meta name="twitter:title" content={`Blog | ${settings?.siteName || 'গল্পগ্রাম'}`} />
+        <meta name="twitter:description" content={settings?.siteDescription || 'গল্পগ্রাম - আপনার প্রিয় গল্পের ঠিকানা। একটি আধুনিক বাংলা ব্লগ প্ল্যাটফর্ম।'} />
       </Helmet>
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
