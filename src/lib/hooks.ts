@@ -72,6 +72,10 @@ export function usePosts(options: {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // If no status is provided and user is not likely an admin/author of these posts, 
+    // we should default to 'published' to avoid permission-denied errors.
+    // However, for the Admin Dashboard, we want all posts.
+    // The safest way is to let the caller specify, but we can add a fallback.
     let q = query(collection(db, 'posts'), orderBy('createdAt', 'desc'));
 
     if (options.status) {
@@ -224,12 +228,17 @@ export interface Page {
   updatedAt?: any;
 }
 
-export function usePages() {
+export function usePages(options: { status?: 'published' | 'draft' } = {}) {
   const [pages, setPages] = useState<Page[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const q = query(collection(db, 'pages'), orderBy('title', 'asc'));
+    let q = query(collection(db, 'pages'), orderBy('title', 'asc'));
+    
+    if (options.status) {
+      q = query(q, where('status', '==', options.status));
+    }
+
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const pagesData = snapshot.docs.map(doc => ({
         id: doc.id,

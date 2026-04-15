@@ -10,7 +10,7 @@ interface FooterProps {
 
 export default function Footer({ onNavigate }: FooterProps) {
   const { settings } = useSettings();
-  const { pages } = usePages();
+  const { pages } = usePages({ status: 'published' });
 
   return (
     <footer className="relative mt-20 border-t bg-muted/30 pt-20 pb-10 overflow-hidden">

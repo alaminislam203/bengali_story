@@ -10,6 +10,12 @@ import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatDate, cn } from '../lib/utils';
+import { 
+  DropdownMenu, 
+  DropdownMenuContent, 
+  DropdownMenuItem, 
+  DropdownMenuTrigger 
+} from '@/components/ui/dropdown-menu';
 import { Send, Image as ImageIcon, Heart, MessageCircle, Share2, BadgeCheck, MoreHorizontal, Bell, Trash2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'motion/react';
@@ -137,7 +143,7 @@ function FeedCommentSection({ postId, authorId }: { postId: string; authorId: st
 }
 
 export default function Feed({ onNavigate }: FeedProps) {
-  const { user, profile } = useAuth();
+  const { user, profile, isAdmin } = useAuth();
   const { posts, loading } = useFeed();
   const [content, setContent] = useState('');
   const [imageUrl, setImageUrl] = useState('');
@@ -221,6 +227,18 @@ export default function Feed({ onNavigate }: FeedProps) {
       ...prev,
       [postId]: !prev[postId]
     }));
+  };
+
+  const handleDeletePost = async (postId: string) => {
+    if (!window.confirm('Are you sure you want to delete this post?')) return;
+
+    try {
+      await deleteDoc(doc(db, 'feed', postId));
+      toast.success('Post deleted successfully');
+    } catch (error) {
+      console.error('Error deleting post:', error);
+      toast.error('Failed to delete post.');
+    }
   };
 
   return (
@@ -344,9 +362,26 @@ export default function Feed({ onNavigate }: FeedProps) {
                         <p className="text-xs text-muted-foreground">{formatDate(post.createdAt?.toDate())}</p>
                       </div>
                     </div>
-                    <Button variant="ghost" size="icon" className="rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
-                      <MoreHorizontal className="h-5 w-5" />
-                    </Button>
+                    {(user?.uid === post.authorId || isAdmin) && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger
+                          render={
+                            <Button variant="ghost" size="icon" className="rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+                              <MoreHorizontal className="h-5 w-5" />
+                            </Button>
+                          }
+                        />
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem 
+                            variant="destructive"
+                            className="cursor-pointer"
+                            onClick={() => handleDeletePost(post.id)}
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" /> Delete Post
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
                   </CardHeader>
                   <CardContent className="pb-4">
                     <p className="text-lg leading-relaxed whitespace-pre-wrap">{post.content}</p>

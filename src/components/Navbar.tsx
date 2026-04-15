@@ -22,7 +22,7 @@ interface NavbarProps {
 export default function Navbar({ onNavigate, currentPage }: NavbarProps) {
   const { user, profile, isAdmin, login, logout } = useAuth();
   const { settings } = useSettings();
-  const { pages } = usePages();
+  const { pages } = usePages({ status: 'published' });
   const [isDark, setIsDark] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const { t, i18n } = useTranslation();

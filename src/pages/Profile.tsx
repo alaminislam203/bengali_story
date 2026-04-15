@@ -22,7 +22,7 @@ import { suggestTags, moderateContent } from '../lib/gemini';
 export default function Profile({ onNavigate }: { onNavigate?: (page: string, slug?: string) => void }) {
   const { user, profile } = useAuth();
   const { bookmarks, loading: bookmarksLoading } = useBookmarks(user?.uid);
-  const { posts: userPosts, loading: postsLoading } = usePosts({ authorId: user?.uid });
+  const { posts: userPosts, loading: postsLoading } = usePosts({ authorId: user?.uid || 'guest_placeholder' });
   const { categories } = useCategories();
   const [bookmarkedPosts, setBookmarkedPosts] = useState<Post[]>([]);
   
