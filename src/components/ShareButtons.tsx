@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { db } from '../lib/firebase';
 import { doc, updateDoc, increment, serverTimestamp } from 'firebase/firestore';
 import { useAuth } from '../lib/auth-context';
+import { awardPoints } from '../lib/points';
 
 interface ShareButtonsProps {
   postId: string;
@@ -20,19 +21,9 @@ export default function ShareButtons({ postId, title, url }: ShareButtonsProps) 
         shareCount: increment(1)
       });
 
-      // Award points for sharing (3 points)
+      // Award points for sharing
       if (user) {
-        const userRef = doc(db, 'users', user.uid);
-        const publicProfileRef = doc(db, 'public_profiles', user.uid);
-        
-        await updateDoc(userRef, {
-          points: increment(3),
-          updatedAt: serverTimestamp()
-        });
-        
-        await updateDoc(publicProfileRef, {
-          points: increment(3)
-        });
+        await awardPoints(user.uid, 'share');
       }
     } catch (error) {
       console.error('Error tracking share:', error);

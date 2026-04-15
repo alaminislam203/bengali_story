@@ -13,7 +13,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, Calendar, User, Eye, ArrowRight, Clock, FolderTree, Tags, Bookmark, BookmarkCheck, CheckCircle, Award, Share2 } from 'lucide-react';
+import { ArrowLeft, Calendar, User, Eye, ArrowRight, Clock, FolderTree, Tags, Bookmark, BookmarkCheck, BadgeCheck, Award, Share2 } from 'lucide-react';
 import DOMPurify from 'dompurify';
 import ReactionButton from '../components/ReactionButton';
 import CommentSection from '../components/CommentSection';
@@ -196,15 +196,15 @@ export default function PostDetail({ slug, onNavigate }: PostDetailProps) {
     const interval = Math.max(1, Number(settings.adParagraphInterval) || 3);
     const maxAds = Math.max(1, Number(settings.adMaxCount) || 3);
 
-    // Split by paragraph tags (case-insensitive)
-    // We use a regex to handle potential variations in the tag
-    const paragraphs = sanitizedContent.split(/<\/p>/i).map(p => p.trim()).filter(p => p !== '');
-    
-    if (paragraphs.length <= interval) {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(sanitizedContent, 'text/html');
+    const children = Array.from(doc.body.children);
+
+    if (children.length === 0 || children.length <= interval) {
       return (
         <>
-          <div className="prose-custom" dangerouslySetInnerHTML={{ __html: sanitizedContent }} />
-          <AdSpace slot="adInPost" className="my-12 flex justify-center border-y py-8" />
+          <div className="prose-custom font-sans" dangerouslySetInnerHTML={{ __html: sanitizedContent }} />
+          <AdSpace slot="adInPost" className="my-12 flex justify-center border-y py-8 bg-primary/5 rounded-2xl" />
         </>
       );
     }
@@ -212,22 +212,22 @@ export default function PostDetail({ slug, onNavigate }: PostDetailProps) {
     const result: React.ReactNode[] = [];
     let currentAds = 0;
 
-    for (let i = 0; i < paragraphs.length; i++) {
+    for (let i = 0; i < children.length; i++) {
       result.push(
         <div 
-          key={`p-${i}`} 
-          className="prose-custom" 
-          dangerouslySetInnerHTML={{ __html: paragraphs[i] + '</p>' }} 
+          key={`el-${i}`} 
+          className="prose-custom font-sans" 
+          dangerouslySetInnerHTML={{ __html: children[i].outerHTML }} 
         />
       );
 
-      // Insert ad after every 'interval' paragraphs, up to 'maxAds'
-      if ((i + 1) % interval === 0 && (i + 1) < paragraphs.length && currentAds < maxAds) {
+      // Insert ad after every 'interval' elements, up to 'maxAds'
+      if ((i + 1) % interval === 0 && (i + 1) < children.length && currentAds < maxAds) {
         result.push(
           <AdSpace 
             key={`ad-${currentAds}`} 
             slot="adInPost" 
-            className="my-8 flex justify-center border-y py-6 bg-muted/10" 
+            className="my-12 flex justify-center border-y py-8 bg-primary/5 rounded-2xl" 
           />
         );
         currentAds++;
@@ -329,8 +329,13 @@ export default function PostDetail({ slug, onNavigate }: PostDetailProps) {
                 >
                   {post.authorName}
                 </span>
-                {authorProfile?.role === 'admin' && (
-                  <CheckCircle className="h-4 w-4 text-blue-500" />
+                {authorProfile?.isVerified && (
+                  <div className="relative group/badge">
+                    <BadgeCheck className="h-4 w-4 text-blue-500 fill-blue-500/10 drop-shadow-[0_0_8px_rgba(59,130,246,0.5)]" />
+                    <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-foreground text-background text-[10px] px-2 py-1 rounded opacity-0 group-hover/badge:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+                      Verified
+                    </div>
+                  </div>
                 )}
                 <Badge className={cn("text-[10px] px-2 py-0 h-5 border-none text-white", authorBadge.color)}>
                   {authorBadge.name}

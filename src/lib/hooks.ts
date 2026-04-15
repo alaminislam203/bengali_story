@@ -21,6 +21,7 @@ export interface Post {
   authorName: string;
   authorBadges?: string[];
   authorPoints?: number;
+  authorIsVerified?: boolean;
   featuredImage?: string;
   categoryId?: string;
   tags?: string[];
@@ -44,6 +45,7 @@ export interface PublicProfile {
   points?: number;
   isVerified?: boolean;
   donationLink?: string;
+  createdAt?: any;
 }
 
 export interface Comment {
@@ -186,6 +188,12 @@ export interface Setting {
   youtubeUrl?: string;
   noticeText?: string;
   noticeEnabled?: boolean;
+  pointsConfig?: {
+    post: number;
+    comment: number;
+    reaction: number;
+    share: number;
+  };
   updatedAt?: any;
 }
 
@@ -509,6 +517,89 @@ export function useSecurityLogs(limitCount: number = 20) {
   }, [limitCount]);
 
   return { logs, loading };
+}
+
+export function useFeed() {
+  const [posts, setPosts] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const q = query(collection(db, 'feed'), orderBy('createdAt', 'desc'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const data = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      setPosts(data);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  return { posts, loading };
+}
+
+export function useFeedComments(postId?: string) {
+  const [comments, setComments] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!postId) {
+      setComments([]);
+      setLoading(false);
+      return;
+    }
+
+    const q = query(
+      collection(db, 'feed_comments'),
+      where('postId', '==', postId),
+      orderBy('createdAt', 'asc')
+    );
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const data = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      setComments(data);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [postId]);
+
+  return { comments, loading };
+}
+
+export function useNotifications(userId?: string) {
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!userId) {
+      setNotifications([]);
+      setLoading(false);
+      return;
+    }
+
+    const q = query(
+      collection(db, 'notifications'),
+      where('userId', '==', userId),
+      orderBy('createdAt', 'desc')
+    );
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const data = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      setNotifications(data);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [userId]);
+
+  return { notifications, loading };
 }
 
 export function usePushSubscriptions() {

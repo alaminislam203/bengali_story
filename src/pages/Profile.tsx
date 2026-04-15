@@ -11,13 +11,13 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from 'sonner';
 import { useBookmarks, usePosts, useCategories, Post, PublicProfile } from '../lib/hooks';
-import { Bookmark, User, PenTool, Award, Star, FileText, Edit, Trash2, Eye, Image as ImageIcon, Calendar, Sparkles, X, Plus } from 'lucide-react';
+import { Bookmark, User, PenTool, Award, Star, FileText, Edit, Trash2, Eye, Image as ImageIcon, Calendar, Sparkles, X, Plus, BadgeCheck } from 'lucide-react';
 import { formatDate, slugify, joditConfig, cn, getBadgeByPoints } from '../lib/utils';
 import JoditEditor from 'jodit-react';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { motion, AnimatePresence } from 'motion/react';
-import { suggestTags } from '../lib/gemini';
+import { suggestTags, moderateContent } from '../lib/gemini';
 
 export default function Profile({ onNavigate }: { onNavigate?: (page: string, slug?: string) => void }) {
   const { user, profile } = useAuth();
@@ -50,6 +50,34 @@ export default function Profile({ onNavigate }: { onNavigate?: (page: string, sl
   // Edit Post State
   const [editingPost, setEditingPost] = useState<Post | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey)) {
+        if (e.key === 's') {
+          e.preventDefault();
+          const writeTab = document.querySelector('[value="write"][data-state="active"]');
+          if (writeTab || isEditDialogOpen) {
+            if (isEditDialogOpen) {
+              handleUpdatePost(new Event('submit') as any);
+            } else {
+              handlePostSubmit(new Event('submit') as any);
+            }
+          }
+        }
+        if (e.key === 'p') {
+          e.preventDefault();
+          const writeTab = document.querySelector('[value="write"][data-state="active"]');
+          if (writeTab || isEditDialogOpen) {
+            setIsPreviewOpen(true);
+          }
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isEditDialogOpen, postTitle, postContent, postExcerpt, featuredImage, categoryId, postTags]);
 
   useEffect(() => {
     if (profile) {
@@ -180,6 +208,14 @@ export default function Profile({ onNavigate }: { onNavigate?: (page: string, sl
 
     setSubmittingPost(true);
     try {
+      // Moderate content before submission
+      const moderation = await moderateContent(postTitle + " " + postContent);
+      if (!moderation.safe) {
+        toast.error(`Content flagged as ${moderation.category}. Please revise.`);
+        setSubmittingPost(false);
+        return;
+      }
+
       const slug = slugify(postTitle) + '-' + Math.random().toString(36).substr(2, 5);
       
       await addDoc(collection(db, 'posts'), {
@@ -192,24 +228,14 @@ export default function Profile({ onNavigate }: { onNavigate?: (page: string, sl
         tags: postTags,
         authorId: user.uid,
         authorName: profile?.displayName || user.email?.split('@')[0] || 'Anonymous',
-        authorPoints: (profile?.points || 0) + 5, // Add 5 points for submission
+        authorPoints: profile?.points || 0,
         authorBadges: profile?.badges || [],
+        authorIsVerified: profile?.isVerified || false,
         status: 'pending', // Requires admin approval
         viewCount: 0,
         likeCount: 0,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
-      });
-
-      // Update user points in both collections
-      const newPoints = (profile?.points || 0) + 5;
-      await updateDoc(doc(db, 'users', user.uid), {
-        points: newPoints,
-        updatedAt: serverTimestamp()
-      });
-      await updateDoc(doc(db, 'public_profiles', user.uid), {
-        points: newPoints,
-        updatedAt: serverTimestamp()
       });
 
       toast.success("Post submitted successfully! It will be published after admin approval.");
@@ -244,6 +270,14 @@ export default function Profile({ onNavigate }: { onNavigate?: (page: string, sl
 
     setSubmittingPost(true);
     try {
+      // Moderate content before update
+      const moderation = await moderateContent(postTitle + " " + postContent);
+      if (!moderation.safe) {
+        toast.error(`Content flagged as ${moderation.category}. Please revise.`);
+        setSubmittingPost(false);
+        return;
+      }
+
       await updateDoc(doc(db, 'posts', editingPost.id), {
         title: postTitle,
         content: postContent,
@@ -298,7 +332,17 @@ export default function Profile({ onNavigate }: { onNavigate?: (page: string, sl
           </Avatar>
           <div className="flex-1 text-center md:text-left space-y-2">
             <div className="flex flex-wrap items-center justify-center md:justify-start gap-3">
-              <h1 className="text-3xl font-bold tracking-tight">{displayName || 'User'}</h1>
+              <div className="flex items-center gap-2">
+                <h1 className="text-3xl font-bold tracking-tight">{displayName || 'User'}</h1>
+                {profile?.isVerified && (
+                  <div className="relative group/badge">
+                    <BadgeCheck className="h-6 w-6 text-blue-500 fill-blue-500/10 drop-shadow-[0_0_8px_rgba(59,130,246,0.5)]" />
+                    <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-foreground text-background text-xs px-2 py-1 rounded opacity-0 group-hover/badge:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+                      Verified User
+                    </div>
+                  </div>
+                )}
+              </div>
               <Badge className={cn("text-[10px] px-2 py-0.5 h-6 border-none text-white", getBadgeByPoints(profile?.points || 0).color)}>
                 {getBadgeByPoints(profile?.points || 0).name}
               </Badge>
@@ -829,14 +873,49 @@ export default function Profile({ onNavigate }: { onNavigate?: (page: string, sl
                     onBlur={newContent => setPostContent(newContent)}
                   />
                 </div>
-                <Button type="submit" disabled={submittingPost}>
-                  {submittingPost ? 'Submitting...' : 'Submit for Review'}
-                </Button>
+                <div className="flex gap-4">
+                  <Button type="submit" disabled={submittingPost} className="flex-1">
+                    {submittingPost ? 'Submitting...' : 'Submit for Review'}
+                  </Button>
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    onClick={() => setIsPreviewOpen(true)}
+                    className="gap-2"
+                  >
+                    <Eye className="h-4 w-4" /> Preview
+                  </Button>
+                </div>
               </form>
             </CardContent>
           </Card>
         </motion.div>
       </TabsContent>
+      <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Post Preview</DialogTitle>
+            <DialogDescription>This is how your post will look to readers.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-6 py-4">
+            {featuredImage && (
+              <img 
+                src={featuredImage} 
+                alt={postTitle} 
+                className="w-full h-64 object-cover rounded-xl" 
+                referrerPolicy="no-referrer"
+              />
+            )}
+            <h1 className="text-4xl font-bold tracking-tight">{postTitle || 'Untitled Post'}</h1>
+            <div className="flex flex-wrap gap-2">
+              {postTags.map(tag => (
+                <Badge key={tag} variant="secondary">{tag}</Badge>
+              ))}
+            </div>
+            <div className="prose prose-lg dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: postContent }} />
+          </div>
+        </DialogContent>
+      </Dialog>
     </Tabs>
 
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>

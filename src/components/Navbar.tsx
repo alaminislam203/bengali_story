@@ -1,6 +1,7 @@
 import { useAuth } from '../lib/auth-context';
-import { useSettings } from '../lib/hooks';
+import { useSettings, usePages } from '../lib/hooks';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
@@ -8,7 +9,7 @@ import {
   DropdownMenuTrigger 
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { LayoutDashboard, LogOut, User, Menu, X, Sun, Moon, Globe, Plus } from 'lucide-react';
+import { LayoutDashboard, LogOut, User, Menu, X, Sun, Moon, Globe, Plus, Bell } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useTranslation } from 'react-i18next';
@@ -21,6 +22,7 @@ interface NavbarProps {
 export default function Navbar({ onNavigate, currentPage }: NavbarProps) {
   const { user, profile, isAdmin, login, logout } = useAuth();
   const { settings } = useSettings();
+  const { pages } = usePages();
   const [isDark, setIsDark] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const { t, i18n } = useTranslation();
@@ -51,11 +53,11 @@ export default function Navbar({ onNavigate, currentPage }: NavbarProps) {
     localStorage.setItem('language', newLang);
   };
 
-  const navLinks = [
+  const navLinks: { name: string; page: string; slug?: string }[] = [
     { name: t('home'), page: 'home' },
     { name: t('blog'), page: 'blog' },
-    { name: t('about'), page: 'static', slug: 'about' },
-    { name: t('contact'), page: 'static', slug: 'contact' },
+    { name: t('feed'), page: 'feed' },
+    ...pages.filter(p => p.status === 'published').map(p => ({ name: p.title, page: 'static', slug: p.slug })),
   ];
 
   const handleNavigate = (page: string, slug?: string) => {
@@ -112,6 +114,16 @@ export default function Navbar({ onNavigate, currentPage }: NavbarProps) {
             <Button variant="ghost" size="icon" onClick={toggleLanguage} className="rounded-full hover:bg-primary/10" title={i18n.language === 'bn' ? 'Switch to English' : 'বাংলায় দেখুন'}>
               <Globe className="h-4 w-4" />
             </Button>
+            {user && (
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="rounded-full hover:bg-primary/10 relative"
+                onClick={() => handleNavigate('notifications')}
+              >
+                <Bell className="h-4 w-4" />
+              </Button>
+            )}
             <Button variant="ghost" size="icon" onClick={toggleTheme} className="rounded-full hover:bg-primary/10">
               {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </Button>
@@ -150,7 +162,12 @@ export default function Navbar({ onNavigate, currentPage }: NavbarProps) {
                   </Avatar>
                   <div className="flex flex-col space-y-0.5 leading-none">
                     <p className="font-bold text-sm">{user.displayName}</p>
-                    <p className="text-[10px] text-muted-foreground truncate max-w-[140px]">{user.email}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-[10px] text-muted-foreground truncate max-w-[100px]">{user.email}</p>
+                      <Badge variant="outline" className="text-[9px] px-1 py-0 h-3.5 border-primary/20 text-primary bg-primary/5">
+                        {profile?.points || 0} pts
+                      </Badge>
+                    </div>
                   </div>
                 </div>
                 <DropdownMenuItem className="rounded-lg h-10 cursor-pointer" onClick={() => handleNavigate('profile')}>

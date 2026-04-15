@@ -13,6 +13,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Heart } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { awardPoints } from '../lib/points';
 
 interface ReactionButtonProps {
   postId: string;
@@ -77,19 +78,9 @@ export default function ReactionButton({ postId, initialLikeCount }: ReactionBut
         });
         await updateDoc(postRef, { likeCount: increment(1) });
 
-        // Award points for liking (1 point)
+        // Award points for liking
         if (user) {
-          const userRef = doc(db, 'users', user.uid);
-          const publicProfileRef = doc(db, 'public_profiles', user.uid);
-          
-          await updateDoc(userRef, {
-            points: increment(1),
-            updatedAt: serverTimestamp()
-          });
-          
-          await updateDoc(publicProfileRef, {
-            points: increment(1)
-          });
+          await awardPoints(user.uid, 'reaction');
         }
       }
     } catch (error) {

@@ -1,4 +1,4 @@
-import { useSettings } from '../lib/hooks';
+import { useSettings, usePages } from '../lib/hooks';
 import { Button } from '@/components/ui/button';
 import { Activity, Facebook, Twitter, Instagram, Youtube, Mail, MapPin, Phone } from 'lucide-react';
 import { requestNotificationPermission } from '../lib/notifications';
@@ -10,6 +10,7 @@ interface FooterProps {
 
 export default function Footer({ onNavigate }: FooterProps) {
   const { settings } = useSettings();
+  const { pages } = usePages();
 
   return (
     <footer className="relative mt-20 border-t bg-muted/30 pt-20 pb-10 overflow-hidden">
@@ -60,12 +61,11 @@ export default function Footer({ onNavigate }: FooterProps) {
               <li>
                 <button onClick={() => onNavigate('blog')} className="text-muted-foreground hover:text-primary transition-colors">Latest Stories</button>
               </li>
-              <li>
-                <button onClick={() => onNavigate('static', 'about')} className="text-muted-foreground hover:text-primary transition-colors">About Us</button>
-              </li>
-              <li>
-                <button onClick={() => onNavigate('static', 'contact')} className="text-muted-foreground hover:text-primary transition-colors">Contact</button>
-              </li>
+              {pages.filter(p => p.status === 'published').map((page) => (
+                <li key={page.id}>
+                  <button onClick={() => onNavigate('static', page.slug)} className="text-muted-foreground hover:text-primary transition-colors">{page.title}</button>
+                </li>
+              ))}
             </ul>
           </div>
 

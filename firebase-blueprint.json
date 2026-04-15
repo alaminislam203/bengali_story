@@ -11,6 +11,7 @@
         "photoURL": { "type": "string", "format": "uri" },
         "role": { "type": "string", "enum": ["admin", "author", "reader"] },
         "isVerified": { "type": "boolean", "description": "Whether the user is a verified author" },
+        "points": { "type": "number", "description": "Total points earned by the user" },
         "bio": { "type": "string" },
         "createdAt": { "type": "string", "format": "date-time" }
       },
@@ -108,6 +109,15 @@
         "primaryColor": { "type": "string", "description": "Primary theme color (hex)" },
         "fontFamily": { "type": "string", "description": "Main font family" },
         "logoUrl": { "type": "string", "description": "URL for site logo" },
+        "pointsConfig": {
+          "type": "object",
+          "properties": {
+            "post": { "type": "number" },
+            "comment": { "type": "number" },
+            "reaction": { "type": "number" },
+            "share": { "type": "number" }
+          }
+        },
         "updatedAt": { "type": "string", "format": "date-time" }
       }
     },
@@ -172,6 +182,7 @@
         "photoURL": { "type": "string" },
         "role": { "type": "string" },
         "isVerified": { "type": "boolean" },
+        "points": { "type": "number" },
         "bio": { "type": "string" },
         "donationLink": { "type": "string" }
       },
@@ -199,6 +210,56 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["token"]
+    },
+    "FeedPost": {
+      "title": "Feed Post",
+      "description": "A short social media style post",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "content": { "type": "string" },
+        "authorId": { "type": "string" },
+        "authorName": { "type": "string" },
+        "authorPhoto": { "type": "string" },
+        "authorIsVerified": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "likeCount": { "type": "number" },
+        "commentCount": { "type": "number" },
+        "image": { "type": "string", "format": "uri" }
+      },
+      "required": ["content", "authorId", "authorName"]
+    },
+    "Notification": {
+      "title": "Notification",
+      "description": "A notification for a user",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string", "description": "The user receiving the notification" },
+        "type": { "type": "string", "enum": ["like", "comment", "system"] },
+        "message": { "type": "string" },
+        "link": { "type": "string" },
+        "read": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "fromUserId": { "type": "string" },
+        "fromUserName": { "type": "string" }
+      },
+      "required": ["userId", "type", "message", "read"]
+    },
+    "FeedComment": {
+      "title": "Feed Comment",
+      "description": "A comment on a social feed post",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "postId": { "type": "string" },
+        "authorId": { "type": "string" },
+        "authorName": { "type": "string" },
+        "authorPhoto": { "type": "string" },
+        "content": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["postId", "authorId", "authorName", "content"]
     }
   },
   "firestore": {
@@ -253,6 +314,18 @@
     "/push_subscriptions/{subscriptionId}": {
       "schema": "PushSubscription",
       "description": "Browser push notification subscription tokens."
+    },
+    "/feed/{postId}": {
+      "schema": "FeedPost",
+      "description": "Social feed posts"
+    },
+    "/feed_comments/{commentId}": {
+      "schema": "FeedComment",
+      "description": "Comments on social feed posts"
+    },
+    "/notifications/{notificationId}": {
+      "schema": "Notification",
+      "description": "User notifications"
     }
   }
 }

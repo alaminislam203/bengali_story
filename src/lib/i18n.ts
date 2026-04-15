@@ -40,6 +40,8 @@ const resources = {
       savedPosts: "Saved Posts",
       editProfile: "Edit Profile",
       language: "Language",
+      feed: "Feed",
+      notifications: "Notifications",
     }
   },
   bn: {
@@ -80,6 +82,8 @@ const resources = {
       savedPosts: "সেভ করা পোস্ট",
       editProfile: "প্রোফাইল এডিট করুন",
       language: "ভাষা",
+      feed: "ফিড",
+      notifications: "নোটিফিকেশন",
     }
   }
 };

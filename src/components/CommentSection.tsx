@@ -10,6 +10,7 @@ import { formatDate } from '../lib/utils';
 import { toast } from 'sonner';
 import { Heart, MessageCircle, ShieldCheck, ShieldAlert, Loader2 } from 'lucide-react';
 import { moderateContent } from '../lib/gemini';
+import { awardPoints } from '../lib/points';
 
 interface CommentSectionProps {
   postId: string;
@@ -101,19 +102,9 @@ export default function CommentSection({ postId }: CommentSectionProps) {
         setNewComment('');
       }
 
-      // Award points for commenting (2 points)
+      // Award points for commenting
       if (user) {
-        const userRef = doc(db, 'users', user.uid);
-        const publicProfileRef = doc(db, 'public_profiles', user.uid);
-        
-        await updateDoc(userRef, {
-          points: increment(2),
-          updatedAt: serverTimestamp()
-        });
-        
-        await updateDoc(publicProfileRef, {
-          points: increment(2)
-        });
+        await awardPoints(user.uid, 'comment');
       }
 
       toast.success("AI Guard verified: Comment posted!", {

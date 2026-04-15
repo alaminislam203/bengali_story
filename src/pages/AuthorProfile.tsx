@@ -8,7 +8,7 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/componen
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowLeft, Clock, ArrowRight, Award, FileText, Heart, Eye, CheckCircle } from 'lucide-react';
+import { ArrowLeft, Clock, ArrowRight, Award, FileText, Heart, Eye, BadgeCheck } from 'lucide-react';
 import { Helmet } from 'react-helmet-async';
 import { motion } from 'motion/react';
 
@@ -127,7 +127,12 @@ export default function AuthorProfile({ authorId, onNavigate }: AuthorProfilePro
               <div className="flex items-center gap-2">
                 <h1 className="text-3xl font-bold tracking-tight">{profile.displayName}</h1>
                 {profile.isVerified && (
-                  <CheckCircle className="h-6 w-6 text-blue-500 fill-blue-500/10" />
+                  <div className="relative group/badge">
+                    <BadgeCheck className="h-6 w-6 text-blue-500 fill-blue-500/10 drop-shadow-[0_0_8px_rgba(59,130,246,0.5)]" />
+                    <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-foreground text-background text-xs px-2 py-1 rounded opacity-0 group-hover/badge:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+                      Verified Author
+                    </div>
+                  </div>
                 )}
               </div>
               <Badge className={cn("text-[10px] px-2 py-0.5 h-6 border-none text-white", authorBadge.color)}>

@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatDate, calculateReadingTime, getBadgeByPoints, cn } from '../lib/utils';
-import { ArrowRight, Clock, Megaphone, Pin } from 'lucide-react';
+import { ArrowRight, Clock, Megaphone, Pin, BadgeCheck } from 'lucide-react';
 import PopularPosts from '../components/PopularPosts';
 import AdSpace from '../components/AdSpace';
 import { Helmet } from 'react-helmet-async';
@@ -211,7 +211,17 @@ export default function Home({ onNavigate }: HomeProps) {
                             {post.excerpt}
                           </p>
                           <div className="flex items-center gap-2 pt-2">
-                            <span className="font-bold text-sm">{post.authorName}</span>
+                            <div className="flex items-center gap-1">
+                              <span className="font-bold text-sm">{post.authorName}</span>
+                              {post.authorId && posts.find(p => p.authorId === post.authorId && p.authorIsVerified) && (
+                                <div className="relative group/badge">
+                                  <BadgeCheck className="h-3 w-3 text-blue-500 fill-blue-500/10 drop-shadow-[0_0_8px_rgba(59,130,246,0.5)]" />
+                                  <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-foreground text-background text-[10px] px-2 py-1 rounded opacity-0 group-hover/badge:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+                                    Verified
+                                  </div>
+                                </div>
+                              )}
+                            </div>
                             <Badge className={cn("text-[9px] px-1.5 py-0 h-4 border-none text-white", authorBadge.color)}>
                               {authorBadge.name}
                             </Badge>

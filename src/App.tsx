@@ -12,6 +12,8 @@ import AuthorProfile from './pages/AuthorProfile';
 import AdminDashboard from './pages/AdminDashboard';
 import StaticPage from './pages/StaticPage';
 import Profile from './pages/Profile';
+import Feed from './pages/Feed';
+import Notifications from './pages/Notifications';
 import { useAuth } from './lib/auth-context';
 import { useSettings } from './lib/hooks';
 import { Button } from '@/components/ui/button';
@@ -120,6 +122,8 @@ function AppContent() {
           >
             {currentPage === 'home' && <Home onNavigate={navigate} />}
             {currentPage === 'blog' && <Blog onNavigate={navigate} />}
+            {currentPage === 'feed' && <Feed onNavigate={navigate} />}
+            {currentPage === 'notifications' && <Notifications onNavigate={navigate} />}
             {currentPage === 'post' && selectedPostSlug && (
               <PostDetail slug={selectedPostSlug} onNavigate={navigate} />
             )}

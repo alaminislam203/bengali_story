@@ -32,11 +32,12 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { toast } from 'sonner';
 import { slugify, formatDate, cn, joditConfig } from '../lib/utils';
-import { Plus, Edit, Trash2, Eye, FileText, Settings, BarChart3, Heart, Layout, Users, MessageSquare, Check, X, Tags, FolderTree, Mail, Send, Activity, Pin, Bell, ExternalLink, ShieldCheck, ShieldAlert, Info, Sparkles, Wand2, Gauge, AlertCircle, Loader2, CheckCircle } from 'lucide-react';
+import { Plus, Edit, Trash2, Eye, FileText, Settings, BarChart3, Heart, Layout, Users, MessageSquare, Check, X, Tags, FolderTree, Mail, Send, Activity, Pin, Bell, ExternalLink, ShieldCheck, ShieldAlert, Info, Sparkles, Wand2, Gauge, AlertCircle, Loader2, CheckCircle, Trophy, ArrowUpDown, BadgeCheck } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
 import JoditEditor from 'jodit-react';
 import { useRef } from 'react';
-import { suggestTags, analyzeContentQuality, ContentQualityResult } from '../lib/gemini';
+import { suggestTags, analyzeContentQuality, ContentQualityResult, moderateContent } from '../lib/gemini';
+import { awardPoints } from '../lib/points';
 import { motion, AnimatePresence } from 'motion/react';
 import AIOnboarding from '../components/AIOnboarding';
 
@@ -97,6 +98,24 @@ function AdminDashboardContent({ onNavigate }: AdminDashboardProps) {
   const [categoryId, setCategoryId] = useState('');
   const [postTags, setPostTags] = useState<string[]>([]);
   const [scheduledAt, setScheduledAt] = useState<string>('');
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && isDialogOpen) {
+        if (e.key === 's') {
+          e.preventDefault();
+          handleSubmit(new Event('submit') as any);
+        }
+        if (e.key === 'p') {
+          e.preventDefault();
+          setIsPreviewOpen(true);
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isDialogOpen, title, content, slug, excerpt, featuredImage, status, categoryId, postTags, scheduledAt]);
   const [hasDraft, setHasDraft] = useState(false);
 
   // AI Features state
@@ -186,6 +205,12 @@ function AdminDashboardContent({ onNavigate }: AdminDashboardProps) {
   const [youtubeUrl, setYoutubeUrl] = useState('');
   const [noticeText, setNoticeText] = useState('');
   const [noticeEnabled, setNoticeEnabled] = useState(false);
+  const [pointsPost, setPointsPost] = useState(10);
+  const [pointsComment, setPointsComment] = useState(2);
+  const [pointsReaction, setPointsReaction] = useState(1);
+  const [pointsShare, setPointsShare] = useState(5);
+
+  const [leaderboardSort, setLeaderboardSort] = useState<'points' | 'date'>('points');
 
   // Category Form state
   const [isCategoryDialogOpen, setIsCategoryDialogOpen] = useState(false);
@@ -206,6 +231,7 @@ function AdminDashboardContent({ onNavigate }: AdminDashboardProps) {
   const [userBadges, setUserBadges] = useState<string[]>([]);
   const [userRole, setUserRole] = useState('');
   const [isUserVerified, setIsUserVerified] = useState(false);
+  const [userPoints, setUserPoints] = useState(0);
 
   // Newsletter Template state
   const [isTemplateDialogOpen, setIsTemplateDialogOpen] = useState(false);
@@ -235,6 +261,12 @@ function AdminDashboardContent({ onNavigate }: AdminDashboardProps) {
       setYoutubeUrl(settings.youtubeUrl || '');
       setNoticeText(settings.noticeText || '');
       setNoticeEnabled(settings.noticeEnabled || false);
+      if (settings.pointsConfig) {
+        setPointsPost(settings.pointsConfig.post || 10);
+        setPointsComment(settings.pointsConfig.comment || 2);
+        setPointsReaction(settings.pointsConfig.reaction || 1);
+        setPointsShare(settings.pointsConfig.share || 5);
+      }
     }
   }, [settings]);
 
@@ -353,6 +385,13 @@ function AdminDashboardContent({ onNavigate }: AdminDashboardProps) {
     e.preventDefault();
     if (!user) return;
 
+    // Moderate content before submission
+    const moderation = await moderateContent(title + " " + content);
+    if (!moderation.safe) {
+      toast.error(`Content flagged as ${moderation.category}. Please revise.`);
+      return;
+    }
+
     const postData: any = {
       title,
       slug: slug || slugify(title),
@@ -379,29 +418,7 @@ function AdminDashboardContent({ onNavigate }: AdminDashboardProps) {
         
         // Check if status is changing to published to award points
         if (editingPost.status !== 'published' && status === 'published') {
-          const authorRef = doc(db, 'public_profiles', editingPost.authorId);
-          const authorDoc = await getDoc(authorRef);
-          if (authorDoc.exists()) {
-            const authorData = authorDoc.data();
-            const currentPoints = authorData.points || 0;
-            const pointsToAdd = 15; // Award 15 points for a published post (total 20 with submission)
-            
-            await updateDoc(authorRef, {
-              points: currentPoints + pointsToAdd,
-              updatedAt: serverTimestamp()
-            });
-            
-            // Also update the private user doc
-            await updateDoc(doc(db, 'users', editingPost.authorId), {
-              points: currentPoints + pointsToAdd,
-              updatedAt: serverTimestamp()
-            });
-
-            // Update denormalized data in the post
-            updatedPostData.authorName = authorData.displayName || editingPost.authorName;
-            updatedPostData.authorPoints = currentPoints + pointsToAdd;
-            updatedPostData.authorBadges = authorData.badges || [];
-          }
+          await awardPoints(editingPost.authorId, 'post');
           updatedPostData.publishedAt = serverTimestamp();
         }
 
@@ -415,6 +432,7 @@ function AdminDashboardContent({ onNavigate }: AdminDashboardProps) {
           authorName: profile?.displayName || user.displayName || 'Anonymous',
           authorPoints: profile?.points || 0,
           authorBadges: profile?.badges || [],
+          authorIsVerified: profile?.isVerified || false,
           createdAt: serverTimestamp(),
           viewCount: 0,
           likeCount: 0,
@@ -424,19 +442,7 @@ function AdminDashboardContent({ onNavigate }: AdminDashboardProps) {
           newPostData.publishedAt = serverTimestamp();
           
           // Award points for self-published admin posts too
-          const authorRef = doc(db, 'public_profiles', user.uid);
-          const authorDoc = await getDoc(authorRef);
-          if (authorDoc.exists()) {
-            const currentPoints = authorDoc.data().points || 0;
-            await updateDoc(authorRef, {
-              points: currentPoints + 10,
-              updatedAt: serverTimestamp()
-            });
-            await updateDoc(doc(db, 'users', user.uid), {
-              points: currentPoints + 10,
-              updatedAt: serverTimestamp()
-            });
-          }
+          await awardPoints(user.uid, 'post');
         }
 
         await addDoc(collection(db, 'posts'), newPostData);
@@ -543,6 +549,12 @@ function AdminDashboardContent({ onNavigate }: AdminDashboardProps) {
         youtubeUrl,
         noticeText,
         noticeEnabled,
+        pointsConfig: {
+          post: pointsPost,
+          comment: pointsComment,
+          reaction: pointsReaction,
+          share: pointsShare
+        },
         updatedAt: serverTimestamp(),
       });
       toast.success("Settings saved successfully!");
@@ -561,12 +573,14 @@ function AdminDashboardContent({ onNavigate }: AdminDashboardProps) {
         role: userRole,
         badges: userBadges,
         isVerified: isUserVerified,
+        points: userPoints,
       });
       
       // Also update the main users collection if necessary
       await updateDoc(doc(db, 'users', editingUser.uid), {
         role: userRole,
         isVerified: isUserVerified,
+        points: userPoints,
       });
 
       toast.success("User updated successfully!");
@@ -582,6 +596,7 @@ function AdminDashboardContent({ onNavigate }: AdminDashboardProps) {
     setUserRole(user.role || 'reader');
     setUserBadges(user.badges || []);
     setIsUserVerified(user.isVerified || false);
+    setUserPoints(user.points || 0);
     setIsUserDialogOpen(true);
   };
 
@@ -680,31 +695,16 @@ function AdminDashboardContent({ onNavigate }: AdminDashboardProps) {
         updatedAt: serverTimestamp(),
       });
 
-      // 2. Increment author's points and get badges
+      // 2. Award points to author
       if (post.authorId) {
+        await awardPoints(post.authorId, 'post');
+        
+        // Update post with verification status
         const publicProfileRef = doc(db, 'public_profiles', post.authorId);
         const publicProfileDoc = await getDoc(publicProfileRef);
-        
         if (publicProfileDoc.exists()) {
-          const authorData = publicProfileDoc.data();
-          const pointsToAdd = 15; // Give 15 points for an approved post
-          
-          await updateDoc(publicProfileRef, {
-            points: increment(pointsToAdd),
-            updatedAt: serverTimestamp()
-          });
-
-          // Also update the private user doc
-          await updateDoc(doc(db, 'users', post.authorId), {
-            points: increment(pointsToAdd),
-            updatedAt: serverTimestamp()
-          });
-
-          // Update post with current author badges and points for denormalization
           await updateDoc(doc(db, 'posts', post.id), {
-            authorName: authorData.displayName || post.authorName,
-            authorBadges: authorData.badges || [],
-            authorPoints: (authorData.points || 0) + pointsToAdd
+            authorIsVerified: publicProfileDoc.data().isVerified || false
           });
         }
       }
@@ -781,24 +781,35 @@ function AdminDashboardContent({ onNavigate }: AdminDashboardProps) {
     <div className="container max-w-[1400px] py-12 space-y-12">
       <AIOnboarding onNavigate={onNavigate} />
       
-      <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
-        <div className="space-y-2">
-          <h1 className="text-3xl md:text-4xl font-bold tracking-tight">Admin Console</h1>
-          <p className="text-muted-foreground text-base md:text-lg">Your central hub for content, community, and configuration.</p>
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-8">
+        <div className="space-y-3 text-center lg:text-left">
+          <Badge variant="outline" className="px-4 py-1 border-primary/20 text-primary bg-primary/5 rounded-full text-[10px] font-bold uppercase tracking-widest">
+            Control Center
+          </Badge>
+          <h1 className="text-4xl md:text-6xl font-bold tracking-tight bg-gradient-to-b from-foreground to-foreground/60 bg-clip-text text-transparent">
+            Admin Console
+          </h1>
+          <p className="text-muted-foreground text-sm md:text-lg max-w-2xl mx-auto lg:mx-0 leading-relaxed">
+            Manage your content, community, and site configuration with ease.
+          </p>
         </div>
-        <div className="flex flex-wrap gap-2 md:gap-3">
-          <Button variant="outline" className="rounded-full px-4 md:px-6 h-10 md:h-12 border-muted/20 bg-muted/5 text-xs md:text-sm flex-1 sm:flex-none" onClick={() => handleOpenTagDialog()}>
-            <Tags className="mr-2 h-4 w-4" /> Tag
-          </Button>
-          <Button variant="outline" className="rounded-full px-4 md:px-6 h-10 md:h-12 border-muted/20 bg-muted/5 text-xs md:text-sm flex-1 sm:flex-none" onClick={() => handleOpenCategoryDialog()}>
-            <FolderTree className="mr-2 h-4 w-4" /> Category
-          </Button>
-          <Button variant="outline" className="rounded-full px-4 md:px-6 h-10 md:h-12 border-muted/20 bg-muted/5 text-xs md:text-sm flex-1 sm:flex-none" onClick={() => handleOpenPageDialog()}>
-            <Layout className="mr-2 h-4 w-4" /> Page
-          </Button>
-          <Button className="rounded-full px-6 md:px-8 h-10 md:h-12 shadow-xl shadow-primary/20 text-xs md:text-sm w-full sm:w-auto" onClick={() => handleOpenDialog()}>
-            <Plus className="mr-2 h-4 w-4" /> New Post
-          </Button>
+        <div className="flex flex-wrap justify-center lg:justify-end gap-3">
+          <div className="flex gap-2 w-full sm:w-auto">
+            <Button variant="outline" className="rounded-full px-4 h-11 border-muted/20 bg-muted/5 text-xs flex-1" onClick={() => handleOpenTagDialog()}>
+              <Tags className="mr-2 h-4 w-4" /> Tag
+            </Button>
+            <Button variant="outline" className="rounded-full px-4 h-11 border-muted/20 bg-muted/5 text-xs flex-1" onClick={() => handleOpenCategoryDialog()}>
+              <FolderTree className="mr-2 h-4 w-4" /> Category
+            </Button>
+          </div>
+          <div className="flex gap-2 w-full sm:w-auto">
+            <Button variant="outline" className="rounded-full px-4 h-11 border-muted/20 bg-muted/5 text-xs flex-1" onClick={() => handleOpenPageDialog()}>
+              <Layout className="mr-2 h-4 w-4" /> Page
+            </Button>
+            <Button className="rounded-full px-8 h-11 shadow-xl shadow-primary/20 text-xs flex-1 sm:flex-none" onClick={() => handleOpenDialog()}>
+              <Plus className="mr-2 h-4 w-4" /> New Post
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -851,13 +862,16 @@ function AdminDashboardContent({ onNavigate }: AdminDashboardProps) {
       </div>
 
       <Tabs defaultValue="posts" className="space-y-8">
-        <div className="flex justify-center overflow-x-auto no-scrollbar pb-2 -mx-4 px-4">
-          <TabsList className="h-12 md:h-14 p-1 md:p-1.5 bg-muted/30 rounded-full border border-muted/20 shrink-0">
+        <div className="flex justify-start overflow-x-auto no-scrollbar pb-2 -mx-4 px-4">
+          <TabsList className="h-12 md:h-14 p-1 md:p-1.5 bg-muted/30 rounded-full border border-muted/20 shrink-0 min-w-max">
             <TabsTrigger value="posts" className="rounded-full px-3 md:px-6 text-xs md:text-sm data-[state=active]:bg-background data-[state=active]:shadow-sm">
               <FileText className="h-3.5 w-3.5 md:h-4 md:w-4 mr-1.5 md:mr-2" /> <span className="hidden xs:inline">Stories</span><span className="xs:hidden">Posts</span>
             </TabsTrigger>
             <TabsTrigger value="users" className="rounded-full px-3 md:px-6 text-xs md:text-sm data-[state=active]:bg-background data-[state=active]:shadow-sm">
               <Users className="h-3.5 w-3.5 md:h-4 md:w-4 mr-1.5 md:mr-2" /> Users
+            </TabsTrigger>
+            <TabsTrigger value="leaderboard" className="rounded-full px-3 md:px-6 text-xs md:text-sm data-[state=active]:bg-background data-[state=active]:shadow-sm">
+              <Trophy className="h-3.5 w-3.5 md:h-4 md:w-4 mr-1.5 md:mr-2" /> Leaderboard
             </TabsTrigger>
             <TabsTrigger value="pages" className="rounded-full px-3 md:px-6 text-xs md:text-sm data-[state=active]:bg-background data-[state=active]:shadow-sm">
               <Layout className="h-3.5 w-3.5 md:h-4 md:w-4 mr-1.5 md:mr-2" /> Pages
@@ -1303,7 +1317,7 @@ function AdminDashboardContent({ onNavigate }: AdminDashboardProps) {
           <Card>
             <CardHeader>
               <CardTitle>User Management</CardTitle>
-              <CardDescription>Manage user roles and assign badges to authors.</CardDescription>
+              <CardDescription>Manage user roles, points, and assign verification badges.</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
@@ -1334,7 +1348,12 @@ function AdminDashboardContent({ onNavigate }: AdminDashboardProps) {
                                   <div className="flex items-center gap-1">
                                     <span className="font-medium">{u.displayName}</span>
                                     {u.isVerified && (
-                                      <CheckCircle className="h-3 w-3 text-blue-500 fill-blue-500/10" />
+                                      <div className="relative group/badge">
+                                        <BadgeCheck className="h-3 w-3 text-blue-500 fill-blue-500/10 drop-shadow-[0_0_8px_rgba(59,130,246,0.5)]" />
+                                        <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-foreground text-background text-[10px] px-2 py-1 rounded opacity-0 group-hover/badge:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+                                          Verified
+                                        </div>
+                                      </div>
                                     )}
                                   </div>
                                   <span className="text-[10px] text-muted-foreground truncate max-w-[120px]">{u.uid}</span>
@@ -1360,6 +1379,111 @@ function AdminDashboardContent({ onNavigate }: AdminDashboardProps) {
                               <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleOpenUserDialog(u)}>
                                 <Edit className="h-4 w-4" />
                               </Button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <p className="text-center py-8 text-muted-foreground">No users found.</p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="leaderboard" className="space-y-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle>Leaderboard</CardTitle>
+                <CardDescription>View users sorted by points and badges.</CardDescription>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button 
+                  variant={leaderboardSort === 'points' ? 'default' : 'outline'} 
+                  size="sm" 
+                  className="rounded-full"
+                  onClick={() => setLeaderboardSort('points')}
+                >
+                  Points
+                </Button>
+                <Button 
+                  variant={leaderboardSort === 'date' ? 'default' : 'outline'} 
+                  size="sm" 
+                  className="rounded-full"
+                  onClick={() => setLeaderboardSort('date')}
+                >
+                  Joined Date
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="rounded-md border overflow-hidden">
+                {usersLoading ? (
+                  <div className="p-8 flex justify-center">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                  </div>
+                ) : users.length > 0 ? (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm text-left">
+                      <thead className="text-xs text-muted-foreground uppercase bg-muted/50">
+                        <tr>
+                          <th className="px-4 py-3">Rank</th>
+                          <th className="px-4 py-3">User</th>
+                          <th className="px-4 py-3">Points</th>
+                          <th className="px-4 py-3">Badges</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y">
+                        {[...users].sort((a, b) => {
+                          if (leaderboardSort === 'points') {
+                            return (b.points || 0) - (a.points || 0);
+                          } else {
+                            const dateA = a.createdAt?.seconds || 0;
+                            const dateB = b.createdAt?.seconds || 0;
+                            return dateB - dateA;
+                          }
+                        }).map((u, index) => (
+                          <tr key={u.uid} className="bg-card hover:bg-muted/50 transition-colors">
+                            <td className="px-4 py-3 font-medium">#{index + 1}</td>
+                            <td className="px-4 py-3">
+                              <div className="flex items-center gap-3">
+                                <Avatar className="h-8 w-8">
+                                  <AvatarImage src={u.photoURL || ''} />
+                                  <AvatarFallback>{u.displayName?.charAt(0) || 'U'}</AvatarFallback>
+                                </Avatar>
+                                <div>
+                                  <div className="font-medium flex items-center gap-1">
+                                    {u.displayName || 'Anonymous'}
+                                    {u.isVerified && (
+                                      <div className="relative group/badge">
+                                        <BadgeCheck className="h-3 w-3 text-blue-500 fill-blue-500/10 drop-shadow-[0_0_8px_rgba(59,130,246,0.5)]" />
+                                        <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-foreground text-background text-[10px] px-2 py-1 rounded opacity-0 group-hover/badge:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+                                          Verified
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-4 py-3">
+                              <span className="font-bold text-primary">{u.points || 0}</span>
+                            </td>
+                            <td className="px-4 py-3">
+                              <div className="flex flex-wrap gap-1">
+                                {u.badges && u.badges.length > 0 ? (
+                                  u.badges.map((badge, i) => (
+                                    <span key={i} className="px-2 py-0.5 bg-primary/10 text-primary text-[10px] rounded-full font-medium">
+                                      {badge}
+                                    </span>
+                                  ))
+                                ) : (
+                                  <span className="text-muted-foreground text-xs">-</span>
+                                )}
+                              </div>
                             </td>
                           </tr>
                         ))}
@@ -1656,7 +1780,7 @@ function AdminDashboardContent({ onNavigate }: AdminDashboardProps) {
           <Card>
             <CardHeader>
               <CardTitle>Site Settings</CardTitle>
-              <CardDescription>Configure site identity and advertisement spaces.</CardDescription>
+              <CardDescription>Configure site identity, advertisement spaces, and user points system.</CardDescription>
             </CardHeader>
             <CardContent>
               <form onSubmit={handleSettingsSubmit} className="space-y-6">
@@ -1803,6 +1927,52 @@ function AdminDashboardContent({ onNavigate }: AdminDashboardProps) {
                 </div>
 
                 <div className="space-y-4">
+                  <h3 className="font-semibold border-b pb-2 text-primary">Points Configuration</h3>
+                  <div className="grid gap-4 md:grid-cols-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="pointsPost">Points per Post</Label>
+                      <Input 
+                        id="pointsPost" 
+                        type="number" 
+                        value={pointsPost} 
+                        onChange={(e) => setPointsPost(parseInt(e.target.value))} 
+                        min={0}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="pointsComment">Points per Comment</Label>
+                      <Input 
+                        id="pointsComment" 
+                        type="number" 
+                        value={pointsComment} 
+                        onChange={(e) => setPointsComment(parseInt(e.target.value))} 
+                        min={0}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="pointsReaction">Points per Reaction</Label>
+                      <Input 
+                        id="pointsReaction" 
+                        type="number" 
+                        value={pointsReaction} 
+                        onChange={(e) => setPointsReaction(parseInt(e.target.value))} 
+                        min={0}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="pointsShare">Points per Share</Label>
+                      <Input 
+                        id="pointsShare" 
+                        type="number" 
+                        value={pointsShare} 
+                        onChange={(e) => setPointsShare(parseInt(e.target.value))} 
+                        min={0}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
                   <h3 className="font-semibold border-b pb-2 text-primary">Ad Space Control</h3>
                   <div className="space-y-4">
                     <div className="flex items-center justify-between p-4 border rounded-lg bg-muted/30">
@@ -1832,23 +2002,25 @@ function AdminDashboardContent({ onNavigate }: AdminDashboardProps) {
                         />
                       </div>
                     )}
-                    <div className="space-y-2">
-                      <Label htmlFor="adHeader">Header Ad (HTML/Script)</Label>
-                      <Textarea id="adHeader" value={adHeader} onChange={(e) => setAdHeader(e.target.value)} placeholder="Paste ad code here" />
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="adHeader">Header Ad (HTML/Script)</Label>
+                        <Textarea id="adHeader" value={adHeader} onChange={(e) => setAdHeader(e.target.value)} placeholder="Paste ad code here" className="min-h-[100px]" />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="adSidebar">Sidebar Ad (HTML/Script)</Label>
+                        <Textarea id="adSidebar" value={adSidebar} onChange={(e) => setAdSidebar(e.target.value)} placeholder="Paste ad code here" className="min-h-[100px]" />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="adFooter">Footer Ad (HTML/Script)</Label>
+                        <Textarea id="adFooter" value={adFooter} onChange={(e) => setAdFooter(e.target.value)} placeholder="Paste ad code here" className="min-h-[100px]" />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="adInPost">In-Post Ad (HTML/Script)</Label>
+                        <Textarea id="adInPost" value={adInPost} onChange={(e) => setAdInPost(e.target.value)} placeholder="Paste ad code here" className="min-h-[100px]" />
+                      </div>
                     </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="adSidebar">Sidebar Ad (HTML/Script)</Label>
-                      <Textarea id="adSidebar" value={adSidebar} onChange={(e) => setAdSidebar(e.target.value)} placeholder="Paste ad code here" />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="adFooter">Footer Ad (HTML/Script)</Label>
-                      <Textarea id="adFooter" value={adFooter} onChange={(e) => setAdFooter(e.target.value)} placeholder="Paste ad code here" />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="adInPost">In-Post Ad (HTML/Script)</Label>
-                      <Textarea id="adInPost" value={adInPost} onChange={(e) => setAdInPost(e.target.value)} placeholder="Paste ad code here" />
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label htmlFor="adParagraphInterval">Paragraph Interval</Label>
                         <Input 
@@ -1858,7 +2030,7 @@ function AdminDashboardContent({ onNavigate }: AdminDashboardProps) {
                           onChange={(e) => setAdParagraphInterval(parseInt(e.target.value))} 
                           min={1}
                         />
-                        <p className="text-xs text-muted-foreground">Show ad after every X paragraphs.</p>
+                        <p className="text-[10px] md:text-xs text-muted-foreground">Show ad after every X paragraphs.</p>
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="adMaxCount">Max Ads per Post</Label>
@@ -1869,7 +2041,7 @@ function AdminDashboardContent({ onNavigate }: AdminDashboardProps) {
                           onChange={(e) => setAdMaxCount(parseInt(e.target.value))} 
                           min={1}
                         />
-                        <p className="text-xs text-muted-foreground">Maximum number of ads to show in a single post.</p>
+                        <p className="text-[10px] md:text-xs text-muted-foreground">Maximum number of ads to show in a single post.</p>
                       </div>
                     </div>
                   </div>
@@ -2127,11 +2299,42 @@ function AdminDashboardContent({ onNavigate }: AdminDashboardProps) {
               </AnimatePresence>
             </div>
 
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
-              <Button type="submit">Save Post</Button>
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button type="button" variant="outline" onClick={() => setIsPreviewOpen(true)} className="gap-2">
+                <Eye className="h-4 w-4" /> Preview
+              </Button>
+              <div className="flex gap-2">
+                <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
+                <Button type="submit">Save Post</Button>
+              </div>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Post Preview</DialogTitle>
+            <DialogDescription>This is how your post will look to readers.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-6 py-4">
+            {featuredImage && (
+              <img 
+                src={featuredImage} 
+                alt={title} 
+                className="w-full h-64 object-cover rounded-xl" 
+                referrerPolicy="no-referrer"
+              />
+            )}
+            <h1 className="text-4xl font-bold tracking-tight">{title || 'Untitled Post'}</h1>
+            <div className="flex flex-wrap gap-2">
+              {postTags.map(tag => (
+                <Badge key={tag} variant="secondary">{tag}</Badge>
+              ))}
+            </div>
+            <div className="prose prose-lg dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: content }} />
+          </div>
         </DialogContent>
       </Dialog>
 
@@ -2284,6 +2487,15 @@ function AdminDashboardContent({ onNavigate }: AdminDashboardProps) {
                 value={userBadges.join(', ')} 
                 onChange={(e) => setUserBadges(e.target.value.split(',').map(b => b.trim()).filter(b => b !== ''))} 
                 placeholder="Verified, Top Author, Pro"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="userPoints">Points</Label>
+              <Input 
+                id="userPoints" 
+                type="number" 
+                value={userPoints} 
+                onChange={(e) => setUserPoints(parseInt(e.target.value))} 
               />
             </div>
             <div className="flex items-center justify-between p-4 border rounded-lg bg-muted/30">
